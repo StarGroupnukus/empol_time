@@ -1,0 +1,7 @@
+embeddings
+logs
+test
+venv
+.env
+.idea
+__pycache__/
