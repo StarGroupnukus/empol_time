@@ -2,28 +2,40 @@ import json
 import os
 import time
 import urllib.request
-from datetime import datetime
-import numpy as np
+
 import cv2
+import numpy as np
+import requests
 from annoy import AnnoyIndex
+from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
-from dotenv import load_dotenv
+
 from funcs import get_faces_data
 
 load_dotenv()
-
 
 mongo_url = os.getenv("MONGODB_LOCAL")
 client = MongoClient(mongo_url)
 
 
-def download_file(filename, org_id):
-    url = f"{os.getenv('SEND_REPORT_API')}{org_id}"
+def download_file(filename):
+    url = os.getenv('SEND_REPORT_API')
+    token = os.getenv('TOKEN_FOR_API')
+
+    headers = {
+        'Authorization': f'Bearer {token}'
+    }
+
     try:
-        urllib.request.urlretrieve(url, filename)
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Это вызовет исключение, если запрос завершится с ошибкой.
+
+        with open(filename, 'wb') as f:
+            f.write(response.content)
+
         print(f"File downloaded successfully as '{filename}'")
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         print("Failed to download file->", e)
 
 
@@ -52,11 +64,8 @@ def process_json(json_data, db, app):
                         'image_url': img_url,
                         'embedding': embedding,
                         'det_score': round((float(face_data.det_score) * 100), 3),
-                        'angle': face_data.pose.tolist(),
-                        'landmark_3d': face_data.landmark_3d_68.tolist(),
+                        'pose': face_data.pose.tolist(),
                         "update_date": time.strftime("%Y-%m-%d %H:%M:%S"),
-                        'utilized': 0,
-                        'used_date': datetime.today(),
                     }
                     db.insert_one(processed_item)
                     update_count += 1
@@ -65,7 +74,6 @@ def process_json(json_data, db, app):
 
     print(f'Updated {update_count}')
     db.delete_many({'_id': {'$nin': active_ids}})
-
 
 
 def get_data(file_path):
@@ -80,16 +88,17 @@ def get_data(file_path):
     except Exception as e:
         print(f"Произошла ошибка: {e}")
 
+
 def to_build(collection, ann_file, tree_n=40):
     num_dimensions = 512
 
     t = AnnoyIndex(num_dimensions, 'euclidean')
-    for doc in collection.find():
+    for doc in collection.find({}):
         t.add_item(doc['_id'], doc['embedding'])
 
     t.build(tree_n)
+    os.makedirs('embeddings', exist_ok=True)
     t.save(f'embeddings/{ann_file}.ann')
-
 
 
 def update_database(org_name):
@@ -97,17 +106,17 @@ def update_database(org_name):
     app.prepare(ctx_id=0)
 
     file_name = f'{org_name}.json'
-    download_file(file_name, org_id=org_id)
+    download_file(file_name)
 
     data = get_data(file_name)
     collection = org_name
-    db = client.face_project[collection]
+    db = client[os.getenv("DB_NAME")][collection]
     start_time = time.time()
     process_json(data, db, app)
     print(time.time() - start_time)
     os.remove(file_name)
 
-    to_build(collection, org_name, tree_n=40)
+    to_build(db, org_name, tree_n=40)
 
 
 if __name__ == '__main__':

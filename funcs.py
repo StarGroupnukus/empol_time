@@ -31,7 +31,7 @@ def setup_logger(name, log_file, level=logging.DEBUG):
 
     return logger
 
-
+os.makedirs('logs', exist_ok=True)
 logger = setup_logger("flog", "logs/flog.log")
 
 
@@ -57,41 +57,36 @@ def extract_date_from_filename(filename):
 
 
 
-def send_report(camera_id, id, file_paths, time, score, status, org_id, flogger=logger):
+def send_report(camera_id, image_id, file_path, time, score, logger=logger):
+    file_name = file_path.split("/")[-1]
+    os.rename(file_path, f'test/{file_name}')
     url = os.getenv("REPORT_URL")
+    token = os.getenv("TOKEN_FOR_API")
     data = {
-        "camera_id": str(camera_id),
-        "child_id": str(id),
-        "score": str(score),
+        "image_id": str(image_id),
+        "device_id": str(camera_id),
+        "images": file_name,
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "status": "1" if status else "0",
+        "score": str(score),
     }
-    files_data = []
 
     try:
-        for file_path in file_paths:
-            if os.path.exists(file_path):
-                file_name = os.path.basename(file_path)
-                mime_type, _ = mimetypes.guess_type(file_name)
-                files_data.append(
-                    ("images[]", (file_name, open(file_path, "rb"), mime_type))
-                )
-            else:
-                flogger.error(f"Файл {file_path} не существует.")
-
-        files = tuple(files_data)
         with requests.post(
-            url, data=data, files=files, headers={"Accept": "application/json"}, timeout=10
+                url, data=data, headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {token}"
+                },
+                timeout=10
         ) as response:
-            flogger.info(response.status_code)
+            logger.info(response.status_code)
+            logger.info(f"{image_id} -- {score}")
             if response.status_code != 200:
                 document = {
                     "camera_id": str(camera_id),
-                    "child_id": str(id),
+                    "child_id": str(image_id),
                     "score": str(score),
                     "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "status": "1" if status else "0",
-                    "file_path": file_paths[0],
+                    "file_path": file_path,
                     "status_code": response.status_code,
                     "send_time": datetime.now(),
                 }
@@ -99,31 +94,27 @@ def send_report(camera_id, id, file_paths, time, score, status, org_id, flogger=
                 # Подключение к MongoDB
                 client = MongoClient(os.getenv("MONGODB_LOCAL"))
                 # Укажите имя базы данных и коллекции
-                db = client["face_project"]
-                collection = db[f"send_report{org_id}"]
+                db = client[os.getenv("DB_NAME")]
+                collection = db["send_report"]
                 collection.insert_one(document)
-            flogger.warning(f"{id} -- {score}")
+            logger.warning(f"{image_id} -- {score}")
     except Exception as e:
         document = {
             "camera_id": str(camera_id),
-            "child_id": str(id),
+            "child_id": str(image_id),
             "score": str(score),
             "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "status": "1" if status else "0",
-            "file_path": file_paths[0],
+            "file_path": file_path,
             "send_time": datetime.now(),
         }
 
         # Подключение к MongoDB
         client = MongoClient(os.getenv("MONGODB_LOCAL"))
         # Укажите имя базы данных и коллекции
-        db = client["face_project"]
-        collection = db[f"send_report{org_id}"]
+        db = client[os.getenv("DB_NAME")]
+        collection = db["send_report"]
         collection.insert_one(document)
-        flogger.error(e)
-    finally:
-        for _, (filename, file, _) in files_data:
-            file.close()
+        logger.error(e)
 
 
 def get_faces_data(faces):
@@ -150,3 +141,14 @@ def calculate_rectangle_area(bbox):
 
     return area
 
+def compute_sim(feat1, feat2, logger=logger):
+    from numpy.linalg import norm
+
+    try:
+        feat1 = feat1.ravel()
+        feat2 = feat2.ravel()
+        sim = np.dot(feat1, feat2) / (norm(feat1) * norm(feat2))
+        return sim
+    except Exception as e:
+        logger.error(e)
+        return None
