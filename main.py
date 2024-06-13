@@ -94,7 +94,9 @@ class MainRunner:
                     os.rename(f'{folder_path}/{file}',
                               f'{folder_path}/recognized/{image_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                     if back_file_name:
+                        person_id = self.mongodb.find_one({'_id': image_id})['person_id']
                         send_report(camera_id,
+                                    person_id,
                                     image_id,
                                     back_file_name,
                                     date,

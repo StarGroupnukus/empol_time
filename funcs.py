@@ -57,9 +57,9 @@ def extract_date_from_filename(filename):
 
 
 
-def send_report(camera_id, image_id, file_path, time, score, logger=logger):
+def send_report(camera_id, person_id, image_id, file_path, time, score, logger=logger):
     file_name = file_path.split("/")[-1]
-    os.rename(file_path, f'test/{file_name}')
+    os.rename(file_path, f'{os.getenv("USERS_FOLDER_PATH")}/{person_id}/attendances/{file_name}')
     url = os.getenv("REPORT_URL")
     token = os.getenv("TOKEN_FOR_API")
     data = {
