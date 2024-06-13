@@ -83,7 +83,7 @@ def send_report(camera_id, image_id, file_path, time, score, logger=logger):
             if response.status_code != 200:
                 document = {
                     "camera_id": str(camera_id),
-                    "child_id": str(image_id),
+                    "image_id": str(image_id),
                     "score": str(score),
                     "time": time.strftime("%Y-%m-%d %H:%M:%S"),
                     "file_path": file_path,
@@ -101,7 +101,7 @@ def send_report(camera_id, image_id, file_path, time, score, logger=logger):
     except Exception as e:
         document = {
             "camera_id": str(camera_id),
-            "child_id": str(image_id),
+            "image_id": str(image_id),
             "score": str(score),
             "time": time.strftime("%Y-%m-%d %H:%M:%S"),
             "file_path": file_path,
@@ -152,3 +152,5 @@ def compute_sim(feat1, feat2, logger=logger):
     except Exception as e:
         logger.error(e)
         return None
+
+

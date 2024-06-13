@@ -14,7 +14,7 @@ load_dotenv()
 
 logger = setup_logger('Mainrunning', 'logs/Mainrunning.log')
 
-TRESHOLD_IS_DB = 30
+TRESHOLD_IS_DB = 20
 POSE_TRESHOLD = 30
 DET_SCORE_TRESH = 0.7
 IMAGE_COUNT = 10
@@ -81,7 +81,6 @@ class MainRunner:
                     os.rename(file_path, f'{folder_path}/error/{file}')
                     os.remove(orig_image_path)
                     continue
-                #status = int(score < TRESHOLD_IS_DB)
                 if score > TRESHOLD_IS_DB:
                     os.makedirs(f"{folder_path}/unknowns", exist_ok=True)
                     os.rename(file_path,

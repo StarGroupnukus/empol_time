@@ -2,7 +2,6 @@ import json
 import os
 import time
 import urllib.request
-
 import cv2
 import numpy as np
 import requests
@@ -10,7 +9,6 @@ from annoy import AnnoyIndex
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
-
 from funcs import get_faces_data
 
 load_dotenv()
