@@ -138,7 +138,9 @@ class MainRunner:
         try:
             person_id = self.mongodb.find_one({'_id': image_id})['person_id']
             image_name = img_path.split('/')[-1]
-            os.rename(img_path, f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images/{image_name}")
+            folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
+            os.makedirs(folder, exist_ok=True)
+            os.rename(img_path, f"{folder}/{image_name}")
             url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{person_id}'
             token = os.getenv("TOKEN_FOR_API")
             data = {
