@@ -71,6 +71,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "score": str(score),
     }
+    print(data)
 
     try:
         with requests.post(

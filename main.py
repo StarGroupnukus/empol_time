@@ -14,7 +14,7 @@ load_dotenv()
 
 logger = setup_logger('Mainrunning', 'logs/Mainrunning.log')
 
-TRESHOLD_IS_DB = 20
+TRESHOLD_IS_DB = 25
 POSE_TRESHOLD = 30
 DET_SCORE_TRESH = 0.7
 IMAGE_COUNT = 10
