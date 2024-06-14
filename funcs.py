@@ -67,7 +67,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
     data = {
         "image_id": str(image_id),
         "device_id": str(camera_id),
-        "images": file_name,
+        "images": [file_name],
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "score": str(score),
     }
