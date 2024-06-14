@@ -1,5 +1,4 @@
 import logging
-import mimetypes
 import os
 from datetime import datetime
 import numpy as np
@@ -84,7 +83,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
             logger.info(response.status_code)
             logger.info(f"{image_id} -- {score}")
             print(response.text)
-            if response.status_code != 200:
+            if response.status_code != 201:
                 logger.error(f'{person_id} - ERROR')
                 pass
                 # document = {
