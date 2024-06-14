@@ -45,7 +45,7 @@ def retry_failed_requests():
                     collection.delete_one({'_id': request['_id']})
 
                 except Exception as e:
-                    logger.info(f"Failed to retry request for camera_id: {camera_id}, child_id: {child_id}. Error: {e}")
+                    logger.info(f"Failed to retry request for camera_id: {camera_id}, child_id:. Error: {e}")
 
         # Ждите один час перед повторением
         sleep(3600)
