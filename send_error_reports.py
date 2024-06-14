@@ -38,7 +38,7 @@ def retry_failed_requests():
 
                 # Попробуйте отправить запрос снова
                 try:
-                    send_report(camera_id, image_id, file_path, datetime.strptime(time, '%Y-%m-%d %H:%M:%S'), score,
+                    send_report(camera_id, image_id, file_path, time, score,
                                 logger)
 
                     # Если запрос успешно выполнен, удалите документ из базы данных
