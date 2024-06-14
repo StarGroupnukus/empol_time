@@ -82,6 +82,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
         ) as response:
             logger.info(response.status_code)
             logger.info(f"{image_id} -- {score}")
+            print(response.text)
             if response.status_code != 200:
                 document = {
                     "camera_id": str(camera_id),
