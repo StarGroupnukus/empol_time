@@ -85,39 +85,43 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
             logger.info(f"{image_id} -- {score}")
             print(response.text)
             if response.status_code != 200:
-                document = {
-                    "camera_id": str(camera_id),
-                    "image_id": str(image_id),
-                    "score": str(score),
-                    "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    "file_path": file_path,
-                    "status_code": response.status_code,
-                    "send_time": datetime.now(),
-                }
-
-                # Подключение к MongoDB
-                client = MongoClient(os.getenv("MONGODB_LOCAL"))
-                # Укажите имя базы данных и коллекции
-                db = client[os.getenv("DB_NAME")]
-                collection = db["send_report"]
-                collection.insert_one(document)
+                logger.error(f'{person_id} - ERROR')
+                pass
+                # document = {
+                #     "camera_id": str(camera_id),
+                #     "image_id": str(image_id),
+                #     "score": str(score),
+                #     "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                #     "file_path": file_path,
+                #     "status_code": response.status_code,
+                #     "send_time": datetime.now(),
+                # }
+                #
+                # # Подключение к MongoDB
+                # client = MongoClient(os.getenv("MONGODB_LOCAL"))
+                # # Укажите имя базы данных и коллекции
+                # db = client[os.getenv("DB_NAME")]
+                # collection = db["send_report"]
+                # collection.insert_one(document)
+            else:
+                logger.info(f"{person_id} -- {score} sent {response.status_code}")
             logger.warning(f"{image_id} -- {score}")
     except Exception as e:
-        document = {
-            "camera_id": str(camera_id),
-            "image_id": str(image_id),
-            "score": str(score),
-            "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-            "file_path": file_path,
-            "send_time": datetime.now(),
-        }
-
-        # Подключение к MongoDB
-        client = MongoClient(os.getenv("MONGODB_LOCAL"))
-        # Укажите имя базы данных и коллекции
-        db = client[os.getenv("DB_NAME")]
-        collection = db["send_report"]
-        collection.insert_one(document)
+        # document = {
+        #     "camera_id": str(camera_id),
+        #     "image_id": str(image_id),
+        #     "score": str(score),
+        #     "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        #     "file_path": file_path,
+        #     "send_time": datetime.now(),
+        # }
+        #
+        # # Подключение к MongoDB
+        # client = MongoClient(os.getenv("MONGODB_LOCAL"))
+        # # Укажите имя базы данных и коллекции
+        # db = client[os.getenv("DB_NAME")]
+        # collection = db["send_report"]
+        # collection.insert_one(document)
         logger.error(e)
 
 

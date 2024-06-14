@@ -88,11 +88,11 @@ class MainRunner:
                     os.remove(orig_image_path)
 
                 else:
-
+                    if os.path.isfile(f'{folder_path}/{file}'):
+                        os.makedirs(f"{folder_path}/recognized", exist_ok=True)
+                        os.rename(f'{folder_path}/{file}',
+                                  f'{folder_path}/recognized/{image_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                     back_file_name = self.send_background(orig_image_path, face_data.embedding)
-                    os.makedirs(f"{folder_path}/recognized", exist_ok=True)
-                    os.rename(f'{folder_path}/{file}',
-                              f'{folder_path}/recognized/{image_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                     if back_file_name:
                         person_id = self.mongodb.find_one({'_id': image_id})['person_id']
                         send_report(camera_id,
