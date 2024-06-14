@@ -155,6 +155,7 @@ class MainRunner:
                         },
                         timeout=10
                 ) as response:
+                    print(response.text)
                     logger.info(f'status code add to db : {response.status_code}')
             except Exception as e:
                 logger.error(f'Exception to sent: {e}')
