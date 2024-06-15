@@ -41,7 +41,6 @@ class MainRunner:
 
     def main_run(self):
         threads = []
-        print(self.cameras_path_directories)
         for camera_directory in self.cameras_path_directories:
             if not camera_directory.startswith('cam'):
                 continue
@@ -79,7 +78,7 @@ class MainRunner:
                     face_data = get_faces_data(face)
 
                 score, image_id = self.who_is_this(face_data, file_path)
-                print(score, image_id)
+                logger.info(f'{score}, {image_id}')
                 if score == 0:
                     os.makedirs(f"{folder_path}/error", exist_ok=True)
                     os.rename(file_path, f'{folder_path}/error/{file}')
