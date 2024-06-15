@@ -1,6 +1,8 @@
 import os
 import threading
 import time
+from datetime import datetime
+
 import cv2
 import numpy as np
 import requests
@@ -29,11 +31,11 @@ class MainRunner:
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
         self.app = FaceAnalysis()
         self.app.prepare(ctx_id=0)
+        self.check_add_to_db = False
         self.app_detection = FaceAnalysis(allowed_modules='detection')
         self.app_detection.prepare(ctx_id=0)
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
-        update_database(self.org_name)
         self.annoy = AnnoyIndex(DIMENSIONS, metric='euclidean')
         self.annoy.load(f'embeddings/{self.org_name}.ann')
 
@@ -46,12 +48,14 @@ class MainRunner:
             camera_directory = f"{self.images_folder}/{camera_directory}"
             camera_id = camera_directory.split(' ')[1]
             time.sleep(1)
-            print(camera_id)
             thread = threading.Thread(target=self.classify_images, args=(camera_directory, camera_id,))
             thread.start()
             threads.append(thread)
         for thread in threads:
             thread.join()
+        if self.check_add_to_db:
+            update_database(self.org_name)
+
 
     def classify_images(self, folder_path, camera_id, ):
         list_files = [file for file in os.listdir(folder_path) if file.endswith('SNAP.jpg')]
@@ -111,12 +115,20 @@ class MainRunner:
                 return 0, 0
 
             image_ids, scores = self.annoy.get_nns_by_vector(face_data.embedding, 2, include_distances=True)
+            person_id = self.mongodb.find_one({'_id': image_ids[0]})['person_id']
+
+            images_count = self.mongodb.count_documents({'person_id': person_id})
 
             image_id, score = image_ids[0], scores[0]
-            if score < TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
+            if images_count < 40 and score < TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
                         face_data.pose[1]) < POSE_TRESHOLD and abs(
                         face_data.pose[0]) < POSE_TRESHOLD:
-                self.add_to_db(file_path, image_id)
+                document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
+                doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
+                delta_time = (datetime.now() - doc_upd_time).total_seconds()
+                # print(delta_time)
+                if delta_time > 4000:
+                    self.add_to_db(file_path, person_id)
             return score, image_id
 
         except Exception as e:
@@ -134,9 +146,8 @@ class MainRunner:
                 return file_path
         return False
 
-    def add_to_db(self, img_path, image_id, ):
+    def add_to_db(self, img_path, person_id, ):
         try:
-            person_id = self.mongodb.find_one({'_id': image_id})['person_id']
             image_name = img_path.split('/')[-1]
             folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
             os.makedirs(folder, exist_ok=True)
@@ -155,8 +166,9 @@ class MainRunner:
                         },
                         timeout=10
                 ) as response:
-                    print(response.text)
+                    #print(response.text)
                     logger.info(f'status code add to db : {response.status_code}')
+                    self.check_add_to_db = True
             except Exception as e:
                 logger.error(f'Exception to sent: {e}')
         except Exception as e:
