@@ -18,7 +18,7 @@ logger = setup_logger('Mainrunning', 'logs/Mainrunning.log')
 
 TRESHOLD_IS_DB = 20
 POSE_TRESHOLD = 30
-DET_SCORE_TRESH = 0.7
+DET_SCORE_TRESH = 0.75
 IMAGE_COUNT = 10
 TRESHOLD_ADD_DB = 19
 DIMENSIONS = 512
@@ -87,7 +87,7 @@ class MainRunner:
                 if score > TRESHOLD_IS_DB:
                     os.makedirs(f"{folder_path}/unknowns", exist_ok=True)
                     os.rename(file_path,
-                              f'{folder_path}/unknowns/{date.strftime("%Y-%m-%d_%H-%M-%S_%f")[:23]}.jpg')
+                              f'{folder_path}/unknowns/{score}_{date.strftime("%Y-%m-%d_%H-%M-%S_%f")[:23]}.jpg')
                     os.remove(orig_image_path)
 
                 else:
