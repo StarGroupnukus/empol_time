@@ -87,7 +87,7 @@ class MainRunner:
                     os.rename(file_path, f'{folder_path}/error/{file}')
                     os.remove(orig_image_path)
                     continue
-                if score > TRESHOLD_IS_DB:
+                if score < TRESHOLD_IS_DB:
                     os.makedirs(f"{folder_path}/unknowns", exist_ok=True)
                     os.rename(file_path,
                               f'{folder_path}/unknowns/{score}_{date.strftime("%Y-%m-%d_%H-%M-%S_%f")[:23]}.jpg')
