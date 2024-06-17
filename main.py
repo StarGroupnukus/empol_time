@@ -34,7 +34,7 @@ class MainRunner:
         self.app = FaceAnalysis()
         self.app.prepare(ctx_id=0)
         self.check_add_to_db = False
-        update_database(self.org_name)
+        update_database(self.org_name, app=self.app)
         self.app_detection = FaceAnalysis(allowed_modules='detection')
         self.app_detection.prepare(ctx_id=0)
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
