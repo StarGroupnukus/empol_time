@@ -57,7 +57,7 @@ class MainRunner:
         for thread in threads:
             thread.join()
         if self.check_add_to_db:
-            update_database(self.org_name)
+            update_database(self.org_name, app=self.app)
 
     def classify_images(self, folder_path, camera_id, ):
         list_files = [file for file in os.listdir(folder_path) if file.endswith('SNAP.jpg')]

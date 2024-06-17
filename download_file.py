@@ -115,9 +115,7 @@ def create_indexes(db, org_id):
         np.save(f, indices)
 
 
-def update_database(org_name):
-    app = FaceAnalysis()
-    app.prepare(ctx_id=0)
+def update_database(org_name, app):
 
     file_name = f'{org_name}.json'
     download_file(file_name)
@@ -130,11 +128,10 @@ def update_database(org_name):
     print(time.time() - start_time)
     os.remove(file_name)
 
-    # to_build(db, org_name, tree_n=40)
     create_indexes(db, org_name)
 
 
 if __name__ == '__main__':
     app = FaceAnalysis()
     app.prepare(ctx_id=0)
-    update_database(org_name='ecosun')
+    update_database(org_name='ecosun', app=app)
