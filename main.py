@@ -18,11 +18,11 @@ load_dotenv()
 
 logger = setup_logger('Mainrunning', 'logs/Mainrunning.log')
 
-TRESHOLD_IS_DB = 14
+TRESHOLD_IS_DB = 13
 POSE_TRESHOLD = 30
 DET_SCORE_TRESH = 0.75
 IMAGE_COUNT = 10
-TRESHOLD_ADD_DB = 19
+TRESHOLD_ADD_DB = 15
 DIMENSIONS = 512
 
 
@@ -42,8 +42,6 @@ class MainRunner:
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
         with open(f'indices{self.org_name}.npy', 'rb') as f:
             self.indices = np.load(f, allow_pickle=True)
-        # self.annoy = AnnoyIndex(DIMENSIONS, metric='euclidean')
-        # self.annoy.load(f'embeddings/{self.org_name}.ann')
 
     def main_run(self):
         threads = []
@@ -122,13 +120,12 @@ class MainRunner:
 
             images_count = self.mongodb.count_documents({'person_id': person_id})
 
-            if (images_count < 40 and score < TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
+            if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
                     face_data.pose[1]) < POSE_TRESHOLD and
                     abs(face_data.pose[0]) < POSE_TRESHOLD):
                 document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
                 doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
                 delta_time = (datetime.now() - doc_upd_time).total_seconds()
-                # print(delta_time)
                 if delta_time > 4000:
                     self.add_to_db(file_path, person_id)
             return score, person_id
