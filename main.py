@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 
 import cv2
+import faiss
 import numpy as np
 import requests
 from annoy import AnnoyIndex
@@ -38,8 +39,8 @@ class MainRunner:
         self.app_detection.prepare(ctx_id=0)
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
-        self.fais_index = faiss.read_index(f'index_file{self.org_id}.index')
-        with open(f'indices{self.org_id}.npy', 'rb') as f:
+        self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
+        with open(f'indices{self.org_name}.npy', 'rb') as f:
             self.indices = np.load(f, allow_pickle=True)
         # self.annoy = AnnoyIndex(DIMENSIONS, metric='euclidean')
         # self.annoy.load(f'embeddings/{self.org_name}.ann')
@@ -81,8 +82,8 @@ class MainRunner:
                 else:
                     face_data = get_faces_data(face)
 
-                score, image_id = self.who_is_this(face_data, file_path)
-                logger.info(f'{score}, {image_id}')
+                score, person_id = self.who_is_this(face_data, file_path)
+                logger.info(f'{score}, {person_id}')
                 if score == 0:
                     os.makedirs(f"{folder_path}/error", exist_ok=True)
                     os.rename(file_path, f'{folder_path}/error/{file}')
@@ -98,13 +99,11 @@ class MainRunner:
                     if os.path.isfile(f'{folder_path}/{file}'):
                         os.makedirs(f"{folder_path}/recognized", exist_ok=True)
                         os.rename(f'{folder_path}/{file}',
-                                  f'{folder_path}/recognized/{image_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                                  f'{folder_path}/recognized/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                     back_file_name = self.send_background(orig_image_path, face_data.embedding)
                     if back_file_name:
-                        person_id = self.mongodb.find_one({'_id': image_id})['person_id']
                         send_report(camera_id,
                                     person_id,
-                                    image_id,
                                     back_file_name,
                                     date,
                                     score,
@@ -118,24 +117,21 @@ class MainRunner:
                 return 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             scores, ids = [i[0].tolist() for i in self.fais_index.search(query, 1)]
-            person_id = [int(self.indices[id]) for id in ids]
-
-            # image_ids, scores = self.annoy.get_nns_by_vector(face_data.embedding, 2, include_distances=True)
-            # person_id = self.mongodb.find_one({'_id': image_ids[0]})['person_id']
+            person_ids = [int(self.indices[id]) for id in ids]
+            person_id, score = person_ids[0], scores[0]
 
             images_count = self.mongodb.count_documents({'person_id': person_id})
 
-            image_id, score = image_ids[0], scores[0]
-            if images_count < 40 and score < TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
-                    face_data.pose[1]) < POSE_TRESHOLD and abs(
-                face_data.pose[0]) < POSE_TRESHOLD:
+            if (images_count < 40 and score < TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
+                    face_data.pose[1]) < POSE_TRESHOLD and
+                    abs(face_data.pose[0]) < POSE_TRESHOLD):
                 document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
                 doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
                 delta_time = (datetime.now() - doc_upd_time).total_seconds()
                 # print(delta_time)
                 if delta_time > 4000:
                     self.add_to_db(file_path, person_id)
-            return score, image_id
+            return score, person_id
 
         except Exception as e:
             logger.error(e)

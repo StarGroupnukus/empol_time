@@ -56,7 +56,7 @@ def extract_date_from_filename(filename):
 
 
 
-def send_report(camera_id, person_id, image_id, file_path, time, score, logger=logger):
+def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     file_name = file_path.split("/")[-1]
     folder = f'{os.getenv("USERS_FOLDER_PATH")}/{person_id}/attendances'
     os.makedirs(folder, exist_ok=True)
@@ -64,7 +64,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
     url = os.getenv("REPORT_URL")
     token = os.getenv("TOKEN_FOR_API")
     data = {
-        "image_id": str(image_id),
+        "user_id": str(person_id),
         "device_id": str(camera_id),
         "images[]": [file_name, ],
         "time": time.strftime("%H:%M:%S"),
@@ -81,7 +81,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
                 timeout=10
         ) as response:
             logger.info(response.status_code)
-            logger.info(f"{image_id} -- {score}")
+            logger.info(f"{person_id} -- {score}")
             print(response.text)
             if response.status_code != 201:
                 logger.error(f'{person_id} - ERROR')
@@ -104,7 +104,7 @@ def send_report(camera_id, person_id, image_id, file_path, time, score, logger=l
                 # collection.insert_one(document)
             else:
                 logger.info(f"{person_id} -- {score} sent {response.status_code}")
-            logger.warning(f"{image_id} -- {score}")
+            logger.warning(f"{person_id} -- {score}")
     except Exception as e:
         # document = {
         #     "camera_id": str(camera_id),

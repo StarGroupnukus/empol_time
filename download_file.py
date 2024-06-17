@@ -5,11 +5,12 @@ import urllib.request
 import cv2
 import numpy as np
 import requests
-from annoy import AnnoyIndex
+#from annoy import AnnoyIndex
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 from funcs import get_faces_data
+import faiss
 
 load_dotenv()
 
@@ -85,18 +86,17 @@ def get_data(file_path):
         print("Ошибка декодирования JSON. Убедитесь, что файл содержит корректный JSON.")
     except Exception as e:
         print(f"Произошла ошибка: {e}")
-
-
-def to_build(collection, ann_file, tree_n=40):
-    num_dimensions = 512
-
-    t = AnnoyIndex(num_dimensions, 'euclidean')
-    for doc in collection.find({}):
-        t.add_item(doc['_id'], doc['embedding'])
-
-    t.build(tree_n)
-    os.makedirs('embeddings', exist_ok=True)
-    t.save(f'embeddings/{ann_file}.ann')
+#
+# def to_build(collection, ann_file, tree_n=40):
+#     num_dimensions = 512
+#
+#     t = AnnoyIndex(num_dimensions, 'euclidean')
+#     for doc in collection.find({}):
+#         t.add_item(doc['_id'], doc['embedding'])
+#
+#     t.build(tree_n)
+#     os.makedirs('embeddings', exist_ok=True)
+#     t.save(f'embeddings/{ann_file}.ann')
 
 
 def create_indexes(db, org_id):
@@ -105,7 +105,7 @@ def create_indexes(db, org_id):
     indices = []
     for doc in docs:
         embeddings.append(doc['embedding'])
-        indices.append(doc['_id'])
+        indices.append(doc['person_id'])
     vectors = np.array(embeddings).astype('float32')
     faiss.normalize_L2(vectors)
     index = faiss.IndexFlatIP(vectors.shape[1])
