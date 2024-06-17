@@ -99,6 +99,22 @@ def to_build(collection, ann_file, tree_n=40):
     t.save(f'embeddings/{ann_file}.ann')
 
 
+def create_indexes(db, org_id):
+    docs = db.find({})
+    embeddings = []
+    indices = []
+    for doc in docs:
+        embeddings.append(doc['embedding'])
+        indices.append(doc['_id'])
+    vectors = np.array(embeddings).astype('float32')
+    faiss.normalize_L2(vectors)
+    index = faiss.IndexFlatIP(vectors.shape[1])
+    index.add(vectors)
+    faiss.write_index(index, f'index_file{org_id}.index')
+    with open(f'indices{org_id}.npy', 'wb') as f:
+        np.save(f, indices)
+
+
 def update_database(org_name):
     app = FaceAnalysis()
     app.prepare(ctx_id=0)
@@ -114,7 +130,8 @@ def update_database(org_name):
     print(time.time() - start_time)
     os.remove(file_name)
 
-    to_build(db, org_name, tree_n=40)
+    # to_build(db, org_name, tree_n=40)
+    create_indexes(db, org_name)
 
 
 if __name__ == '__main__':

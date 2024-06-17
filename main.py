@@ -12,6 +12,7 @@ from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 from download_file import update_database
 from funcs import extract_date_from_filename, send_report, get_faces_data, setup_logger, compute_sim
+
 load_dotenv()
 
 logger = setup_logger('Mainrunning', 'logs/Mainrunning.log')
@@ -25,7 +26,7 @@ DIMENSIONS = 512
 
 
 class MainRunner:
-    def __init__(self, images_folder,):
+    def __init__(self, images_folder, ):
         self.images_folder = images_folder
         self.org_name = images_folder.split('/')[-1]
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
@@ -37,8 +38,11 @@ class MainRunner:
         self.app_detection.prepare(ctx_id=0)
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
-        self.annoy = AnnoyIndex(DIMENSIONS, metric='euclidean')
-        self.annoy.load(f'embeddings/{self.org_name}.ann')
+        self.fais_index = faiss.read_index(f'index_file{self.org_id}.index')
+        with open(f'indices{self.org_id}.npy', 'rb') as f:
+            self.indices = np.load(f, allow_pickle=True)
+        # self.annoy = AnnoyIndex(DIMENSIONS, metric='euclidean')
+        # self.annoy.load(f'embeddings/{self.org_name}.ann')
 
     def main_run(self):
         threads = []
@@ -55,7 +59,6 @@ class MainRunner:
             thread.join()
         if self.check_add_to_db:
             update_database(self.org_name)
-
 
     def classify_images(self, folder_path, camera_id, ):
         list_files = [file for file in os.listdir(folder_path) if file.endswith('SNAP.jpg')]
@@ -113,16 +116,19 @@ class MainRunner:
         try:
             if np.all(face_data.embedding) == 0:
                 return 0, 0
+            query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
+            scores, ids = [i[0].tolist() for i in self.fais_index.search(query, 1)]
+            person_id = [int(self.indices[id]) for id in ids]
 
-            image_ids, scores = self.annoy.get_nns_by_vector(face_data.embedding, 2, include_distances=True)
-            person_id = self.mongodb.find_one({'_id': image_ids[0]})['person_id']
+            # image_ids, scores = self.annoy.get_nns_by_vector(face_data.embedding, 2, include_distances=True)
+            # person_id = self.mongodb.find_one({'_id': image_ids[0]})['person_id']
 
             images_count = self.mongodb.count_documents({'person_id': person_id})
 
             image_id, score = image_ids[0], scores[0]
             if images_count < 40 and score < TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
-                        face_data.pose[1]) < POSE_TRESHOLD and abs(
-                        face_data.pose[0]) < POSE_TRESHOLD:
+                    face_data.pose[1]) < POSE_TRESHOLD and abs(
+                face_data.pose[0]) < POSE_TRESHOLD:
                 document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
                 doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
                 delta_time = (datetime.now() - doc_upd_time).total_seconds()
@@ -135,7 +141,7 @@ class MainRunner:
             logger.error(e)
             return 0, 0
 
-    def send_background(self, file_path, embedding,):
+    def send_background(self, file_path, embedding, ):
         image = cv2.imread(file_path)
         image_data = self.app.get(image)
         for data in image_data:
@@ -166,7 +172,7 @@ class MainRunner:
                         },
                         timeout=10
                 ) as response:
-                    #print(response.text)
+                    # print(response.text)
                     logger.info(f'status code add to db : {response.status_code}')
                     self.check_add_to_db = True
             except Exception as e:
