@@ -7,10 +7,10 @@ import cv2
 import faiss
 import numpy as np
 import requests
-from annoy import AnnoyIndex
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
+
 from download_file import update_database
 from funcs import extract_date_from_filename, send_report, get_faces_data, setup_logger, compute_sim
 
@@ -31,17 +31,18 @@ class MainRunner:
         self.images_folder = images_folder
         self.org_name = images_folder.split('/')[-1]
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
-        self.app = FaceAnalysis()
-        self.app.prepare(ctx_id=0)
         self.check_add_to_db = False
-        update_database(self.org_name, app=self.app)
-        self.app_detection = FaceAnalysis(allowed_modules='detection')
-        self.app_detection.prepare(ctx_id=0)
+        self.app = self.setup_face_analysis()
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
-        with open(f'indices{self.org_name}.npy', 'rb') as f:
-            self.indices = np.load(f, allow_pickle=True)
+        self.indices = np.load(f'index_file{self.org_name}.index', allow_pickle=True)
+
+    def setup_face_analysis(self):
+        app = FaceAnalysis(allowed_modules='detection')
+        app.prepare(ctx_id=0)
+        update_database(self.org_name, app=app)
+        return app
 
     def main_run(self):
         threads = []
@@ -114,9 +115,9 @@ class MainRunner:
             if np.all(face_data.embedding) == 0:
                 return 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
-            scores, ids = [i[0].tolist() for i in self.fais_index.search(query, 1)]
+            scores, ids = [i[0].tolist() for i in self.fais_index.search(query, 5)]
             person_ids = [int(self.indices[id]) for id in ids]
-            person_id, score = person_ids[0], scores[0]
+            person_id, score = max(person_ids), scores[0]
 
             images_count = self.mongodb.count_documents({'person_id': person_id})
 
