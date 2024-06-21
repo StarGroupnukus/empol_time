@@ -31,17 +31,20 @@ class MainRunner:
         self.org_name = os.path.basename(images_folder)
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
         self.check_add_to_db = False
-        self.app = self.setup_face_analysis()
+        self.app, self.app_detection = self.setup_face_analysis()
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
-        self.indices = np.load(f'index_file{self.org_name}.index', allow_pickle=True)
+        self.indices = np.load(f'index_file{self.org_name}.index')
 
     def setup_face_analysis(self):
-        app = FaceAnalysis(allowed_modules='detection')
+        app_detection = FaceAnalysis(allowed_modules='detection')
+        app = FaceAnalysis()
+        app_detection.prepare(ctx_id=0)
         app.prepare(ctx_id=0)
+
         update_database(self.org_name, app=app)
-        return app
+        return app_detection, app
 
     def main_run(self):
         threads = []
@@ -123,7 +126,7 @@ class MainRunner:
 
     def send_background(self, file_path, embedding):
         image = cv2.imread(file_path)
-        image_data = self.app.get(image)
+        image_data = self.app_detection.get(image)
         for data in image_data:
             if compute_sim(data.embedding, embedding) > 0.8:
                 x1, y1, x2, y2 = map(int, data.bbox)
