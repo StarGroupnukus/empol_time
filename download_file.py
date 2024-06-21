@@ -5,7 +5,6 @@ import urllib.request
 import cv2
 import numpy as np
 import requests
-#from annoy import AnnoyIndex
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
@@ -22,13 +21,11 @@ def download_file(filename):
     url = os.getenv('SEND_REPORT_API')
     token = os.getenv('TOKEN_FOR_API')
 
-    headers = {
-        'Authorization': f'Bearer {token}'
-    }
+    headers = {'Authorization': f'Bearer {token}'}
 
     try:
         response = requests.get(url, headers=headers)
-        response.raise_for_status()  # Это вызовет исключение, если запрос завершится с ошибкой.
+        response.raise_for_status()
 
         with open(filename, 'wb') as f:
             f.write(response.content)
@@ -55,19 +52,20 @@ def process_json(json_data, db, app):
                     arr = np.asarray(bytearray(req.read()), dtype=np.uint8)
                     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
                     face = app.get(img)
-                    face_data = get_faces_data(face)
-                    embedding = face_data.embedding.tolist()
-                    processed_item = {
-                        '_id': img_id,
-                        'person_id': id,
-                        'image_url': img_url,
-                        'embedding': embedding,
-                        'det_score': round((float(face_data.det_score) * 100), 3),
-                        'pose': face_data.pose.tolist(),
-                        "update_date": time.strftime("%Y-%m-%d %H:%M:%S"),
-                    }
-                    db.insert_one(processed_item)
-                    update_count += 1
+                    if face:
+                        face_data = get_faces_data(face)
+                        embedding = face_data.embedding.tolist()
+                        processed_item = {
+                            '_id': img_id,
+                            'person_id': id,
+                            'image_url': img_url,
+                            'embedding': embedding,
+                            'det_score': round((float(face_data.det_score) * 100), 3),
+                            'pose': face_data.pose.tolist(),
+                            "update_date": time.strftime("%Y-%m-%d %H:%M:%S"),
+                        }
+                        db.insert_one(processed_item)
+                        update_count += 1
                 except Exception as e:
                     print("Failed to process image->", e)
 
@@ -78,25 +76,13 @@ def process_json(json_data, db, app):
 def get_data(file_path):
     try:
         with open(file_path, 'r') as file:
-            data = json.load(file)
-        return data
+            return json.load(file)
     except FileNotFoundError:
-        print("Файл не найден.")
+        print("File not found.")
     except json.JSONDecodeError:
-        print("Ошибка декодирования JSON. Убедитесь, что файл содержит корректный JSON.")
+        print("JSON decode error. Ensure the file contains valid JSON.")
     except Exception as e:
-        print(f"Произошла ошибка: {e}")
-#
-# def to_build(collection, ann_file, tree_n=40):
-#     num_dimensions = 512
-#
-#     t = AnnoyIndex(num_dimensions, 'euclidean')
-#     for doc in collection.find({}):
-#         t.add_item(doc['_id'], doc['embedding'])
-#
-#     t.build(tree_n)
-#     os.makedirs('embeddings', exist_ok=True)
-#     t.save(f'embeddings/{ann_file}.ann')
+        print(f"An error occurred: {e}")
 
 
 def create_indexes(db, org_id):
@@ -111,12 +97,10 @@ def create_indexes(db, org_id):
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
     faiss.write_index(index, f'index_file{org_id}.index')
-    with open(f'indices{org_id}.npy', 'wb') as f:
-        np.save(f, indices)
+    np.save(f'indices{org_id}.npy', indices)
 
 
 def update_database(org_name, app):
-
     file_name = f'{org_name}.json'
     download_file(file_name)
 
@@ -125,7 +109,7 @@ def update_database(org_name, app):
     db = client[os.getenv("DB_NAME")][collection]
     start_time = time.time()
     process_json(data, db, app)
-    print(time.time() - start_time)
+    print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
     create_indexes(db, org_name)
