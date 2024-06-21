@@ -1,10 +1,11 @@
 import logging
 import os
 from datetime import datetime
+
 import numpy as np
 import requests
 from dotenv import load_dotenv
-from pymongo import MongoClient
+from numpy.linalg import norm
 
 load_dotenv()
 
@@ -88,10 +89,11 @@ def calculate_rectangle_area(bbox):
 
 
 def compute_sim(feat1, feat2, logger=logger):
-    """Вычисляет косинусное сходство между двумя векторами."""
     try:
-        feat1, feat2 = feat1.ravel(), feat2.ravel()
-        return np.dot(feat1, feat2) / (np.linalg.norm(feat1) * np.linalg.norm(feat2))
+        feat1 = feat1.ravel()
+        feat2 = feat2.ravel()
+        sim = np.dot(feat1, feat2) / (norm(feat1) * norm(feat2))
+        return sim
     except Exception as e:
-        logger.error(f"Error computing similarity: {e}")
+        logger.error(e)
         return None
