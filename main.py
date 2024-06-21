@@ -87,11 +87,12 @@ class MainRunner:
                     os.remove(orig_image_path)
                     continue
                 if score < TRESHOLD_IS_DB:
-                    self.move_file(file_path, os.path.join(folder_path, "unknowns", f'{score}_{date.strftime("%Y-%m-%d_%H-%M-%S_%f")[:23]}.jpg'))
+                    self.move_file(file_path, os.path.join(folder_path, "unknowns", f'{round(score, 2)}_{date.strftime("%Y-%m-%d_%H-%M-%S_%f")[:23]}.jpg'))
                     os.remove(orig_image_path)
                 else:
-                    recognized_path = os.path.join(folder_path, "recognized", f'{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                    self.move_file(file_path, recognized_path)
+                    if os.path.exists(file_path):
+                        recognized_path = os.path.join(folder_path, "recognized", f'{person_id}_{round(score, 2)}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                        self.move_file(file_path, recognized_path)
                     back_file_name = self.send_background(orig_image_path, face_data.embedding)
                     if back_file_name:
                         send_report(camera_id, person_id, back_file_name, date, score, logger)
