@@ -39,10 +39,8 @@ class MainRunner:
             self.indices = np.load(f, allow_pickle=True)
 
     def setup_face_analysis(self):
-        # app_detection = FaceAnalysis(allowed_modules='detection')
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
-        # app_detection.prepare(ctx_id=0)
 
         update_database(self.org_name, app=app)
         return app
@@ -108,7 +106,7 @@ class MainRunner:
             scores, ids = self.fais_index.search(query, 5)
             scores, ids = scores[0], ids[0]
             person_ids = [int(self.indices[id]) for id in ids]
-            person_id, score = max(person_ids), scores[0]
+            person_id, score = person_ids[0], scores[0]
 
             images_count = self.mongodb.count_documents({'person_id': person_id})
 
