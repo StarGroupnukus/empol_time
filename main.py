@@ -35,11 +35,10 @@ class MainRunner:
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
-        try:
-            self.indices = np.load(f"indices{self.org_name}.npy", allow_pickle=True)
-        except Exception as e:
-            logger.error(f"Error loading indices file: {e}")
-            self.indices = None
+        with open(f'indices{self.org_name}.npy', 'rb') as f:
+            self.indices = np.load(f, allow_pickle=True)
+
+    
     def setup_face_analysis(self):
         app_detection = FaceAnalysis(allowed_modules='detection')
         app = FaceAnalysis()
