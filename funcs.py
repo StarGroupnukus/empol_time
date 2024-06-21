@@ -84,7 +84,8 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
             logger.info(f"{person_id} -- {score}")
             print(response.text)
             if response.status_code != 201:
-                logger.error(f'{person_id} - ERROR')
+
+                logger.error(f'{person_id} - }')
                 pass
                 # document = {
                 #     "camera_id": str(camera_id),
