@@ -45,7 +45,7 @@ class MainRunner:
         app.prepare(ctx_id=0)
 
         update_database(self.org_name, app=app)
-        return app_detection, app
+        return app, app_detection
 
     def main_run(self):
         threads = []
@@ -122,7 +122,7 @@ class MainRunner:
             return score, person_id
 
         except Exception as e:
-            logger.error(f'Exeption WHO IS THIS{e}')
+            logger.error(f'Exeption WHO IS THIS {e}')
             return 0, 0
 
     def send_background(self, file_path, embedding):
