@@ -38,7 +38,6 @@ class MainRunner:
         with open(f'indices{self.org_name}.npy', 'rb') as f:
             self.indices = np.load(f, allow_pickle=True)
 
-    
     def setup_face_analysis(self):
         app_detection = FaceAnalysis(allowed_modules='detection')
         app = FaceAnalysis()
