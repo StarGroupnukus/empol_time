@@ -97,7 +97,8 @@ def create_indexes(db, org_id):
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
     faiss.write_index(index, f'index_file{org_id}.index')
-    np.save(f'indices{org_id}.npy', indices)
+    with open(f'indices{org_id}.npy', 'wb') as f:
+        np.save(f, indices)
 
 
 def update_database(org_name, app):
