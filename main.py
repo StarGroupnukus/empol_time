@@ -35,7 +35,7 @@ class MainRunner:
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
-        self.indices = np.load(f'index_file{self.org_name}.index')
+        self.indices = np.load(f'index_file{self.org_name}.index', allow_pickle=True)
 
     def setup_face_analysis(self):
         app_detection = FaceAnalysis(allowed_modules='detection')
