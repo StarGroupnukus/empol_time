@@ -122,7 +122,7 @@ class MainRunner:
             return score, person_id
 
         except Exception as e:
-            logger.error(e)
+            logger.error(f'Exeption WHO IS THIS{e}')
             return 0, 0
 
     def send_background(self, file_path, embedding):
