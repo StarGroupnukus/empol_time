@@ -41,6 +41,11 @@ class MainRunner:
         self.employee_data = list(self.clients_db.find())
         self.app = self.setup_app()
         self.client_index, self.client_indices = create_indexes(self.clients_db, self.org_name,'client')
+        # Проверяем, были ли созданы индексы
+        if self.client_index is None or self.client_indices is None:
+            self.logger.warning("Client index is not created due to empty database.")
+            self.client_index = faiss.IndexFlatIP(512)
+            self.client_indices = []
         #self.initialize_counter('client_id')
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'staff_index_file{self.org_name}.index')

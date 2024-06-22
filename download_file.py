@@ -2,14 +2,16 @@ import json
 import os
 import time
 import urllib.request
+
 import cv2
+import faiss
 import numpy as np
 import requests
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
+
 from funcs import get_faces_data
-import faiss
 
 load_dotenv()
 
@@ -106,10 +108,10 @@ def create_indexes(db, org_id, role):
     for doc in docs:
         embeddings.append(doc['embedding'])
         indices.append(doc['person_id'])
+
+    if len(embeddings) == 0:
+        return None, None
     vectors = np.array(embeddings).astype('float32')
-    # Проверка, чтобы убедиться, что массив не пустой
-    if vectors.size == 0:
-        raise ValueError("Vectors array is empty. Cannot create index.")
     faiss.normalize_L2(vectors)
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
@@ -118,7 +120,10 @@ def create_indexes(db, org_id, role):
         with open(f'indices{org_id}.npy', 'wb') as f:
             np.save(f, indices)
     else:
+        if len(vectors) == 0:
+            return faiss.IndexFlatIP(512), []
         return index, indices
+
 
 def update_database(org_name, app):
     file_name = f'{org_name}.json'
