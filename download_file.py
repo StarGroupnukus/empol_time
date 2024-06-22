@@ -107,6 +107,9 @@ def create_indexes(db, org_id, role):
         embeddings.append(doc['embedding'])
         indices.append(doc['person_id'])
     vectors = np.array(embeddings).astype('float32')
+    # Проверка, чтобы убедиться, что массив не пустой
+    if vectors.size == 0:
+        raise ValueError("Vectors array is empty. Cannot create index.")
     faiss.normalize_L2(vectors)
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
