@@ -85,8 +85,22 @@ def get_data(file_path):
         print(f"An error occurred: {e}")
 
 
-def create_indexes(db, org_id):
-    docs = db.find({})
+# def create_indexes(db, org_id):
+#     docs = db.find({})
+#     embeddings = []
+#     indices = []
+#     for doc in docs:
+#         embeddings.append(doc['embedding'])
+#         indices.append(doc['person_id'])
+#     vectors = np.array(embeddings).astype('float32')
+#     faiss.normalize_L2(vectors)
+#     index = faiss.IndexFlatIP(vectors.shape[1])
+#     index.add(vectors)
+#     faiss.write_index(index, f'index_file{org_id}.index')
+#     with open(f'indices{org_id}.npy', 'wb') as f:
+#         np.save(f, indices)
+def create_indexes(db, org_id, role):
+    docs = db.find()
     embeddings = []
     indices = []
     for doc in docs:
@@ -96,10 +110,12 @@ def create_indexes(db, org_id):
     faiss.normalize_L2(vectors)
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
-    faiss.write_index(index, f'index_file{org_id}.index')
-    with open(f'indices{org_id}.npy', 'wb') as f:
-        np.save(f, indices)
-
+    if role != 'client':
+        faiss.write_index(index, f'index_file{org_id}.index')
+        with open(f'indices{org_id}.npy', 'wb') as f:
+            np.save(f, indices)
+    else:
+        return index, indices
 
 def update_database(org_name, app):
     file_name = f'{org_name}.json'

@@ -33,7 +33,7 @@ class MainRunner:
         self.check_add_to_db = False
         self.app = self.setup_face_analysis()
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
-        self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
+        self.mongodb = self.db[os.gete  nv("DB_NAME")][self.org_name]
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
         with open(f'indices{self.org_name}.npy', 'rb') as f:
             self.indices = np.load(f, allow_pickle=True)
