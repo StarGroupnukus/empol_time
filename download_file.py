@@ -132,7 +132,7 @@ def update_database(org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    create_indexes(db, org_name)
+    # create_indexes(db, org_name)
 
 
 if __name__ == '__main__':
