@@ -30,7 +30,7 @@ logger = setup_logger('MainRunner', 'logs/main.log')
 class MainRunner:
     def __init__(self, images_folder):
         self.images_folder = images_folder
-        self.org_id = images_folder.split('_')[1]
+        self.org_name = os.path.basename(images_folder)
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db.biz_count
@@ -40,17 +40,17 @@ class MainRunner:
         self.logger = setup_logger('MainRunner', 'logs/main.log')
         self.employee_data = list(self.clients_db.find())
         self.app = self.setup_app()
-        self.client_index, self.client_indices = create_indexes(self.clients_db, self.org_id, 'client')
+        self.client_index, self.client_indices = create_indexes(self.clients_db, self.org_name,)
         #self.initialize_counter('client_id')
         self.check_add_to_db = False
-        self.employee_index = faiss.read_index(f'staff_index_file{self.org_id}.index')
-        self.employee_indices = np.load(f'staff_index_file{self.org_id}.index', allow_pickle=True)
+        self.employee_index = faiss.read_index(f'staff_index_file{self.org_name}.index')
+        self.employee_indices = np.load(f'staff_index_file{self.org_name}.index', allow_pickle=True)
         self.new_clients = {}
 
     def setup_app(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
-        update_database(self.org_id, app=app)
+        update_database(self.org_name, app=app)
         return app
 
     # def initialize_counter(self, counter_id):
@@ -73,7 +73,7 @@ class MainRunner:
         for thread in threads:
             thread.join()
         if self.check_add_to_db:
-            update_database(self.org_id, app=self.app)
+            update_database(self.org_name, app=self.app)
             self.check_add_to_db = False
 
     def classify_images(self, folder_path, camera_id):
