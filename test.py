@@ -48,8 +48,8 @@ class MainRunner:
             self.client_indices = []
         #self.initialize_counter('client_id')
         self.check_add_to_db = False
-        self.employee_index = faiss.read_index(f'staff_index_file{self.org_name}.index')
-        self.employee_indices = np.load(f'staff_index_file{self.org_name}.index', allow_pickle=True)
+        self.employee_index = faiss.read_index(f'ndex_file{self.org_name}.index')
+        self.employee_indices = np.load(f'index_file{self.org_name}.index', allow_pickle=True)
         self.new_clients = {}
 
     def setup_app(self):
