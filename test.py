@@ -74,7 +74,7 @@ class MainRunner:
         client_data = {
             'score': 0,
             "person_id": 0,
-            "embedding": [float(x) for x in face_data.embedding.tolist()],
+            "embedding": face_data.embedding,
             "gender": face_data.gender,
             "age": face_data.age,
             "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
