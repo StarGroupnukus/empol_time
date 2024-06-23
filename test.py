@@ -40,7 +40,7 @@ class MainRunner:
         self.logger = setup_logger('MainRunner', 'logs/main.log')
         self.employee_data = list(self.clients_db.find())
         self.app = self.setup_app()
-        sself.client_index, self.client_indices = self.initialize_client_index()
+        self.client_index, self.client_indices = self.initialize_client_index()
         # self.initialize_counter('client_id')
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
