@@ -44,7 +44,7 @@ class MainRunner:
         self.employee_data = list(self.clients_db.find())
         self.app = self.setup_app()
         self.client_index, self.client_indices = self.initialize_client_index()
-        # self.initialize_counter('client_id')
+        self.initialize_counter('client_id')
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
@@ -63,10 +63,10 @@ class MainRunner:
             self.add_face_data_to_db()
             return create_indexes(self.clients_db, self.org_name, 'client')
 
-    # def initialize_counter(self, counter_id):
-    #     if self.counter_db.find_one({'_id': counter_id}) is None:
-    #         self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
-    #         self.logger.info(f"Initialized counter for {counter_id}")
+    def initialize_counter(self, counter_id):
+        if self.counter_db.find_one({'_id': counter_id}) is None:
+            self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
+            self.logger.info(f"Initialized counter for {counter_id}")
     def add_face_data_to_db(self):
         image = cv2.imread(INIT_IMAGE_PATH)
         face_data = self.app.get(image)[0]
