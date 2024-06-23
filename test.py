@@ -72,11 +72,11 @@ class MainRunner:
         face_data = self.app.get(image)[0]
 
         client_data = {
-            'score': 0,
-            "person_id": 0,
-            "embedding": face_data['embedding'].tolist(),
+            'score': 0,  # Пример, убедитесь что значение корректно для вашего случая
+            "person_id": int(0),  # Преобразование numpy.int64 в int
+            "embedding": face_data.embedding.tolist(),  # tolist() должно вернуть список с элементами float
             "gender": face_data.gender,
-            "age": face_data.age,
+            "age": int(face_data.age),  # Преобразование numpy.int64 в int, если возможно
             "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
 
