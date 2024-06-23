@@ -40,13 +40,8 @@ class MainRunner:
         self.logger = setup_logger('MainRunner', 'logs/main.log')
         self.employee_data = list(self.clients_db.find())
         self.app = self.setup_app()
-        self.client_index, self.client_indices = create_indexes(self.clients_db, self.org_name,'client')
-        # Проверяем, были ли созданы индексы
-        if self.client_index is None or self.client_indices is None:
-            self.logger.warning("Client index is not created due to empty database.")
-            self.client_index = faiss.IndexFlatIP(512)
-            self.client_indices = []
-        #self.initialize_counter('client_id')
+        sself.client_index, self.client_indices = self.initialize_client_index()
+        # self.initialize_counter('client_id')
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
@@ -57,6 +52,14 @@ class MainRunner:
         app.prepare(ctx_id=0)
         update_database(self.org_name, app=app)
         return app
+
+    def initialize_client_index(self):
+        client_data = list(self.clients_db.find())
+        if not client_data:
+            self.logger.warning("Client index is not created due to empty database.")
+            return faiss.IndexFlatIP(DIMENSIONS), []
+        else:
+            return create_indexes(self.clients_db, self.org_name, 'client')
 
     # def initialize_counter(self, counter_id):
     #     if self.counter_db.find_one({'_id': counter_id}) is None:
@@ -101,48 +104,52 @@ class MainRunner:
                 continue
             else:
                 face_data = get_faces_data(faces)
-
-                score, person_id = self.is_employee(face_data, file_path)
-                if score == 0:
-                    os.makedirs(f"{folder_path}/error", exist_ok=True)
-                    os.rename(file_path, f'{folder_path}/error/{file}')
-                    os.remove(orig_image_path)
-                    continue
-                if score > TRESHOLD_IS_DB:
-                    back_file_name = self.send_background(orig_image_path, face_data.embedding)
-                    if back_file_name:
-                        send_report(camera_id, person_id, back_file_name, date, score, logger)
-                    else:
-                        os.remove(orig_image_path)
-                    # continue
+                if self.clients_db.count_documents({}) == 0:
+                    self.logger.warning("The clients database is empty. Skipping image classification.")
+                    add_new_client_to_db(face_data)
                 else:
-                    score, person_id = self.is_regular_client(face_data, file_path)
-                    if score == 0 and person_id == 0:
+                    score, person_id = self.is_employee(face_data, file_path)
+                    if score == 0:
                         os.makedirs(f"{folder_path}/error", exist_ok=True)
                         os.rename(file_path, f'{folder_path}/error/{file}')
+                        os.remove(orig_image_path)
                         continue
-                    elif score > TRESHOLD_IS_DB:
-                        if os.path.isfile(f'{folder_path}/{file}'):
-                            os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
-                            os.rename(f'{folder_path}/{file}',
-                                      f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                            #self.send_client_data(camera_id, person_id, date, file_path, face_data)
-
-                    else:
-                        person_id = self.add_new_client_to_db(face_data)
-                        if person_id:
-                            os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
-                            os.rename(f'{folder_path}/{file}', f'{folder_path}/new_clients/{person_id}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                            print(f'new client {person_id} ')
+                    if score > TRESHOLD_IS_DB:
+                        back_file_name = self.send_background(orig_image_path, face_data.embedding)
+                        if back_file_name:
+                            send_report(camera_id, person_id, back_file_name, date, score, logger)
                         else:
-                            os.makedirs(f"{folder_path}/no_good", exist_ok=True)
-                            os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
-                            #self.send_client_data(camera_id, person_id, date, file_path, face_data)
+                            os.remove(orig_image_path)
+                        # continue
+                    else:
+                        score, person_id = self.is_regular_client(face_data, file_path)
+                        if score == 0 and person_id == 0:
+                            os.makedirs(f"{folder_path}/error", exist_ok=True)
+                            os.rename(file_path, f'{folder_path}/error/{file}')
+                            continue
+                        elif score > TRESHOLD_IS_DB:
+                            if os.path.isfile(f'{folder_path}/{file}'):
+                                os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
+                                os.rename(f'{folder_path}/{file}',
+                                          f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                                # self.send_client_data(camera_id, person_id, date, file_path, face_data)
+                        else:
+                            person_id = self.add_new_client_to_db(face_data)
+                            if person_id:
+                                os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
+                                os.rename(f'{folder_path}/{file}',
+                                          f'{folder_path}/new_clients/{person_id}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                                print(f'new client {person_id} ')
+                            else:
+                                os.makedirs(f"{folder_path}/no_good", exist_ok=True)
+                                os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
+                                # self.send_client_data(camera_id, person_id, date, file_path, face_data)
 
     def is_regular_client(self, face_data, file_path):
         try:
             if np.all(face_data.embedding) == 0:
                 return False, 0, 0
+
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             index = self.client_index
             scores, ids = [i[0].tolist() for i in index.search(query, 5)]
