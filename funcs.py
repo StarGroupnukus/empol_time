@@ -50,7 +50,7 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     os.makedirs(folder, exist_ok=True)
     os.rename(file_path, os.path.join(folder, file_name))
 
-    url = os.getenv(f"REPORT_URL?day={time.strftime('%Y-%m-%d')}")
+    url = f'{os.getenv(f"REPORT_URL")}?day={time.strftime("%Y-%m-%d")}'
     print(url)
     token = os.getenv("TOKEN_FOR_API")
     data = {
