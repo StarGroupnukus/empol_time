@@ -56,10 +56,21 @@ class MainRunner:
     def initialize_client_index(self):
         client_data = list(self.clients_db.find())
         if not client_data:
-            self.logger.warning("Client index is not created due to empty database.")
-            return faiss.IndexFlatIP(DIMENSIONS), []
+            self.logger.warning("Client index is not created due to empty database. Initializing with an empty index.")
+            client_index = faiss.IndexFlatIP(DIMENSIONS)
+            client_indices = []
+            self.clients_db.insert_one(
+                {"placeholder": True})
+            return client_index, client_indices
         else:
             return create_indexes(self.clients_db, self.org_name, 'client')
+    # def initialize_client_index(self):
+    #     client_data = list(self.clients_db.find())
+    #     if not client_data:
+    #         self.logger.warning("Client index is not created due to empty database.")
+    #         return faiss.IndexFlatIP(DIMENSIONS), []
+    #     else:
+    #         return create_indexes(self.clients_db, self.org_name, 'client')
 
     # def initialize_counter(self, counter_id):
     #     if self.counter_db.find_one({'_id': counter_id}) is None:
