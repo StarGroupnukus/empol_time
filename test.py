@@ -82,7 +82,7 @@ class MainRunner:
     def main_run(self):
         threads = []
         for camera_directory in self.cameras_path_directories:
-            if not camera_directory.startswith('Camera'):
+            if not camera_directory.startswith('test'):
                 continue
             camera_directory = f"{self.images_folder}/{camera_directory}"
             camera_id = camera_directory.split(' ')[1]
