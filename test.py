@@ -24,7 +24,7 @@ IMAGE_COUNT = 10
 TRESHOLD_ADD_DB = 19
 DIMENSIONS = 512
 INDEX_UPDATE_TRESHOLD = 1
-INIT_IMAGE_PATH = r'C:\Users\user\Downloads\pavel.png'
+INIT_IMAGE_PATH = './pavel.png'
 # ADD_TO_CLIENT_DB_THRESHOLD =20
 logger = setup_logger('MainRunner', 'logs/main.log')
 
