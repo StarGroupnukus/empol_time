@@ -1,6 +1,6 @@
-import os
 from datetime import datetime
 import cv2
+import numpy
 
 
 def add_face_data_to_db(app, db, image_path):
