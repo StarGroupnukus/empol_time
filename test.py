@@ -210,6 +210,7 @@ class MainRunner:
             logger.error(f'Exception add image: {e}')
 
     def add_new_client_to_db(self, face_data):
+        self.logger.info("Attempting to add a new client.")
         try:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
