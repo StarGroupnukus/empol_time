@@ -13,7 +13,7 @@ from pymongo import MongoClient
 
 from download_file import update_database, create_indexes
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
-from create_start_db import add_face_data_to_db
+# from create_start_db import add_face_data_to_db
 
 load_dotenv()
 
@@ -67,7 +67,20 @@ class MainRunner:
     #     if self.counter_db.find_one({'_id': counter_id}) is None:
     #         self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
     #         self.logger.info(f"Initialized counter for {counter_id}")
+    def add_face_data_to_db(self):
+        image = cv2.imread(INIT_IMAGE_PATH)
+        face_data = self.app.get(image)[0]
 
+        client_data = {
+            'score': 0,
+            "person_id": 0,
+            "embedding": face_data['embedding'].tolist(),
+            "gender": face_data.gender,
+            "age": face_data.age,
+            "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        self.clients_db.insert_one(client_data)
     def main_run(self):
         threads = []
         for camera_directory in self.cameras_path_directories:
