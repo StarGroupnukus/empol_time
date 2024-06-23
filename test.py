@@ -59,7 +59,7 @@ class MainRunner:
         client_data = list(self.clients_db.find())
         if not client_data:
             self.logger.warning("Client index is not created due to empty database. Initializing with an empty index.")
-            add_face_data_to_db(self.app, self.clients_db, INIT_IMAGE_PATH)
+            self.add_face_data_to_db()
         else:
             return create_indexes(self.clients_db, self.org_name, 'client')
 
