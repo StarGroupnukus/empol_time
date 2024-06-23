@@ -5,9 +5,7 @@ from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
 
-def add_face_data_to_db(db, image_path):
-    app = FaceAnalysis()
-    app.prepare(ctx_id=0)
+def add_face_data_to_db(app,db, image_path):
     face_data = app.get(image_path)[0]
 
     client_data = {
