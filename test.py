@@ -186,12 +186,12 @@ class MainRunner:
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = max(person_ids), scores[0]
 
-            images_count = self.mongodb.count_documents({'person_id': person_id})
+            images_count = self.employees_db.count_documents({'person_id': person_id})
 
             if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
                     face_data.pose[1]) < POSE_TRESHOLD and
                     abs(face_data.pose[0]) < POSE_TRESHOLD):
-                document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
+                document = self.employees_db.find_one({"person_id": person_id}, sort=[("update_date", -1)])
                 doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
                 delta_time = (datetime.now() - doc_upd_time).total_seconds()
                 if delta_time > 4000:
@@ -199,7 +199,7 @@ class MainRunner:
             return score, person_id
         except Exception as e:
             self.logger.error(e)
-            return False, 0, 0
+            return 0, 0
 
     def add_regular_client_to_db(self, face_data, score, person_id, file_path):
         try:
