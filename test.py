@@ -105,8 +105,10 @@ class MainRunner:
             else:
                 face_data = get_faces_data(faces)
                 if self.clients_db.count_documents({}) == 0:
-                    self.logger.warning("The clients database is empty. Skipping image classification.")
-                    self.add_new_client_to_db(face_data)
+                    self.logger.warning(
+                        "The clients database is empty. Adding the first client to initialize the index.")
+                    person_id = self.add_new_client_to_db(face_data)
+                    self.logger.info(f"New client with ID {person_id} added to initialize the index.")
                 else:
                     score, person_id = self.is_employee(face_data, file_path)
                     if score == 0:
