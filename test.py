@@ -22,8 +22,8 @@ DET_SCORE_TRESH = 0.75
 IMAGE_COUNT = 10
 TRESHOLD_ADD_DB = 19
 DIMENSIONS = 512
-INDEX_UPDATE_TRESHOLD = 20
-
+INDEX_UPDATE_TRESHOLD = 1
+# ADD_TO_CLIENT_DB_THRESHOLD =20
 logger = setup_logger('MainRunner', 'logs/main.log')
 
 
@@ -227,7 +227,7 @@ class MainRunner:
                 }
                 self.new_clients[person_id] = client_data
                 self.logger.info(f"New client added with ID: {person_id}")
-                if len(self.new_clients) >= 20:
+                if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
                     self.update_client_index()
                 return person_id
         except Exception as e:
