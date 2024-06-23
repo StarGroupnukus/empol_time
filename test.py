@@ -62,6 +62,7 @@ class MainRunner:
             self.logger.warning("Client index is not created due to empty database. Initializing with an empty index.")
             self.add_face_data_to_db()
             return create_indexes(self.clients_db, self.org_name, 'client')
+        return create_indexes(self.clients_db, self.org_name, 'client')
 
     def initialize_counter(self, counter_id):
         if self.counter_db.find_one({'_id': counter_id}) is None:
