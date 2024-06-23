@@ -13,6 +13,7 @@ from pymongo import MongoClient
 
 from download_file import update_database, create_indexes
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
+from create_start_db import add_face_data_to_db
 
 load_dotenv()
 
@@ -23,6 +24,7 @@ IMAGE_COUNT = 10
 TRESHOLD_ADD_DB = 19
 DIMENSIONS = 512
 INDEX_UPDATE_TRESHOLD = 1
+INIT_IMAGE_PATH = r'C:\Users\user\Downloads\pavel.png'
 # ADD_TO_CLIENT_DB_THRESHOLD =20
 logger = setup_logger('MainRunner', 'logs/main.log')
 
@@ -57,13 +59,10 @@ class MainRunner:
         client_data = list(self.clients_db.find())
         if not client_data:
             self.logger.warning("Client index is not created due to empty database. Initializing with an empty index.")
-            client_index = faiss.IndexFlatIP(DIMENSIONS)
-            client_indices = []
-            self.clients_db.insert_one(
-                {"placeholder": True})
-            return client_index, client_indices
+            add_face_data_to_db(self.clients_db, INIT_IMAGE_PATH)
         else:
             return create_indexes(self.clients_db, self.org_name, 'client')
+
     # def initialize_client_index(self):
     #     client_data = list(self.clients_db.find())
     #     if not client_data:
@@ -115,214 +114,217 @@ class MainRunner:
                 continue
             else:
                 face_data = get_faces_data(faces)
-                if self.clients_db.count_documents({}) == 0:
-                    self.logger.warning(
-                        "The clients database is empty. Adding the first client to initialize the index.")
-                    person_id = self.add_new_client_to_db(face_data)
-                    self.logger.info(f"New client with ID {person_id} added to initialize the index.")
+
+                score, person_id = self.is_employee(face_data, file_path)
+                if score == 0:
+                    os.makedirs(f"{folder_path}/error", exist_ok=True)
+                    os.rename(file_path, f'{folder_path}/error/{file}')
+                    os.remove(orig_image_path)
+                    continue
+                if score > TRESHOLD_IS_DB:
+                    back_file_name = self.send_background(orig_image_path, face_data.embedding)
+                    if back_file_name:
+                        send_report(camera_id, person_id, back_file_name, date, score, logger)
+                    else:
+                        os.remove(orig_image_path)
+                    # continue
                 else:
-                    score, person_id = self.is_employee(face_data, file_path)
-                    if score == 0:
+                    score, person_id = self.is_regular_client(face_data, file_path)
+                    if score == 0 and person_id == 0:
                         os.makedirs(f"{folder_path}/error", exist_ok=True)
                         os.rename(file_path, f'{folder_path}/error/{file}')
-                        os.remove(orig_image_path)
                         continue
-                    if score > TRESHOLD_IS_DB:
-                        back_file_name = self.send_background(orig_image_path, face_data.embedding)
-                        if back_file_name:
-                            send_report(camera_id, person_id, back_file_name, date, score, logger)
-                        else:
-                            os.remove(orig_image_path)
-                        # continue
+                    elif score > TRESHOLD_IS_DB:
+                        if os.path.isfile(f'{folder_path}/{file}'):
+                            os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
+                            os.rename(f'{folder_path}/{file}',
+                                      f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                            # self.send_client_data(camera_id, person_id, date, file_path, face_data)
                     else:
-                        score, person_id = self.is_regular_client(face_data, file_path)
-                        if score == 0 and person_id == 0:
-                            os.makedirs(f"{folder_path}/error", exist_ok=True)
-                            os.rename(file_path, f'{folder_path}/error/{file}')
-                            continue
-                        elif score > TRESHOLD_IS_DB:
-                            if os.path.isfile(f'{folder_path}/{file}'):
-                                os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
-                                os.rename(f'{folder_path}/{file}',
-                                          f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                                # self.send_client_data(camera_id, person_id, date, file_path, face_data)
+                        person_id = self.add_new_client_to_db(face_data)
+                        if person_id:
+                            os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
+                            os.rename(f'{folder_path}/{file}',
+                                      f'{folder_path}/new_clients/{person_id}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                            print(f'new client {person_id} ')
                         else:
-                            person_id = self.add_new_client_to_db(face_data)
-                            if person_id:
-                                os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
-                                os.rename(f'{folder_path}/{file}',
-                                          f'{folder_path}/new_clients/{person_id}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                                print(f'new client {person_id} ')
-                            else:
-                                os.makedirs(f"{folder_path}/no_good", exist_ok=True)
-                                os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
-                                # self.send_client_data(camera_id, person_id, date, file_path, face_data)
+                            os.makedirs(f"{folder_path}/no_good", exist_ok=True)
+                            os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
+                            # self.send_client_data(camera_id, person_id, date, file_path, face_data)
 
-    def is_regular_client(self, face_data, file_path):
-        try:
-            if np.all(face_data.embedding) == 0:
-                return False, 0, 0
 
-            query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
-            index = self.client_index
-            scores, ids = [i[0].tolist() for i in index.search(query, 5)]
-            indices = self.client_indices
-            person_ids = [int(indices[id_empl]) for id_empl in ids]
-            person_id, score = person_ids[0], scores[0]
-
-            # добавление в базу и проверка
-            self.add_regular_client_to_db(face_data, score, person_id, file_path)
-            return person_id, score
-
-        except Exception as e:
-            logger.error(e)
-            return 0, 0
-
-    def is_employee(self, face_data, file_path):
-        try:
-            if np.all(face_data.embedding) == 0:
-                return False, 0, 0
-            query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
-            index = self.employee_index
-            scores, ids = [i[0].tolist() for i in index.search(query, 5)]
-            indices = self.employee_indices
-            person_ids = [int(indices[id_empl]) for id_empl in ids]
-            person_id, score = max(person_ids), scores[0]
-
-            images_count = self.mongodb.count_documents({'person_id': person_id})
-
-            if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
-                    face_data.pose[1]) < POSE_TRESHOLD and
-                    abs(face_data.pose[0]) < POSE_TRESHOLD):
-                document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
-                doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
-                delta_time = (datetime.now() - doc_upd_time).total_seconds()
-                if delta_time > 4000:
-                    self.add_employer_to_db(file_path, person_id)
-            return score, person_id
-        except Exception as e:
-            self.logger.error(e)
+def is_regular_client(self, face_data, file_path):
+    try:
+        if np.all(face_data.embedding) == 0:
             return False, 0, 0
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path):
-        try:
-            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
-                    face_data.pose[0]) < POSE_TRESHOLD:
-                client_data = {
-                    'score': score,
-                    "person_id": person_id,
-                    "embedding": face_data.embedding.tolist(),
-                    "gender": face_data.gender,
-                    "age": face_data.age,
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                }
-                self.clients_db.insert_one(client_data)
-        except Exception as e:
-            logger.error(f'Exception add image: {e}')
+        query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
+        index = self.client_index
+        scores, ids = [i[0].tolist() for i in index.search(query, 5)]
+        indices = self.client_indices
+        person_ids = [int(indices[id_empl]) for id_empl in ids]
+        person_id, score = person_ids[0], scores[0]
 
-    def add_new_client_to_db(self, face_data):
-        self.logger.info("Attempting to add a new client.")
-        try:
-            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
-                    face_data.pose[0]) < POSE_TRESHOLD:
-                counter = self.counter_db.find_one_and_update(
-                    {'_id': 'client_id'},
-                    {'$inc': {'seq': 1}},
-                    upsert=True,
-                    return_document=True
-                )
-                person_id = counter['seq']
-                client_data = {
-                    "person_id": person_id,
-                    "embedding": face_data.embedding.tolist(),
-                    "gender": face_data.gender,
-                    "age": face_data.age,
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                }
-                self.new_clients[person_id] = client_data
-                self.logger.info(f"New client added with ID: {person_id}")
-                if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
-                    self.update_client_index()
-                return person_id
-        except Exception as e:
-            logger.error(f'Exception add image: {e}')
+        # добавление в базу и проверка
+        self.add_regular_client_to_db(face_data, score, person_id, file_path)
+        return person_id, score
 
-    def update_client_index(self):
-        try:
-            for person_id, client_data in self.new_clients.items():
-                embedding = np.array(client_data["embedding"]).astype('float32').reshape(1, -1)
-                self.client_index.add(embedding)
-                self.client_indices.append(person_id)
-                self.clients_db.insert_one(client_data)
-            self.new_clients.clear()
-        except Exception as e:
-            self.logger.error(f'Exception updating index: {e}')
+    except Exception as e:
+        logger.error(e)
+        return 0, 0
 
-    def send_client_data(self, camera_id, person_id, date, file_path, face_data):
-        try:
-            url = os.getenv("SEND_CLIENT_URL")
-            token = os.getenv("TOKEN_CLIENT_API")
-            headers = {
-                "Accept": "application/json",
-                "Authorization": f"Bearer {token}"
-            }
-            gender = face_data.gender
-            age = face_data.age
-            data = {
-                "camera_id": camera_id,
+
+def is_employee(self, face_data, file_path):
+    try:
+        if np.all(face_data.embedding) == 0:
+            return False, 0, 0
+        query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
+        index = self.employee_index
+        scores, ids = [i[0].tolist() for i in index.search(query, 5)]
+        indices = self.employee_indices
+        person_ids = [int(indices[id_empl]) for id_empl in ids]
+        person_id, score = max(person_ids), scores[0]
+
+        images_count = self.mongodb.count_documents({'person_id': person_id})
+
+        if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
+                face_data.pose[1]) < POSE_TRESHOLD and
+                abs(face_data.pose[0]) < POSE_TRESHOLD):
+            document = self.mongodb.find_one({"person_id": person_id}, sort=[("update_date", -1)])
+            doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
+            delta_time = (datetime.now() - doc_upd_time).total_seconds()
+            if delta_time > 4000:
+                self.add_employer_to_db(file_path, person_id)
+        return score, person_id
+    except Exception as e:
+        self.logger.error(e)
+        return False, 0, 0
+
+
+def add_regular_client_to_db(self, face_data, score, person_id, file_path):
+    try:
+        if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
+                face_data.pose[0]) < POSE_TRESHOLD:
+            client_data = {
+                'score': score,
                 "person_id": person_id,
-                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                "gender": gender,
-                "age": age
+                "embedding": face_data.embedding.tolist(),
+                "gender": face_data.gender,
+                "age": face_data.age,
+                "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
+            self.clients_db.insert_one(client_data)
+    except Exception as e:
+        logger.error(f'Exception add image: {e}')
 
-            files = {'images': open(file_path, 'rb')}
-            response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
-            self.logger.info(f"Sent data: {response.status_code}")
-            if response.status_code != 201:
-                self.logger.error(f"Error: {response.status_code} for client {person_id}")
-            else:
-                self.logger.info(f"Report  sent successfully for client {person_id}")
-        except Exception as e:
-            self.logger.error(f'Exception sending client data: {e}')
 
-    def send_background(self, file_path, embedding):
-        image = cv2.imread(file_path)
-        image_data = self.app.get(image)
-        for data in image_data:
-            if compute_sim(data.embedding, embedding) > 0.8:
-                x1, y1, x2, y2 = [int(val) for val in data.bbox]
-                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                cv2.imwrite(file_path, image)
-                return file_path
-        return False
+def add_new_client_to_db(self, face_data):
+    self.logger.info("Attempting to add a new client.")
+    try:
+        if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
+                face_data.pose[0]) < POSE_TRESHOLD:
+            counter = self.counter_db.find_one_and_update(
+                {'_id': 'client_id'},
+                {'$inc': {'seq': 1}},
+                upsert=True,
+                return_document=True
+            )
+            person_id = counter['seq']
+            client_data = {
+                "person_id": person_id,
+                "embedding": face_data.embedding.tolist(),
+                "gender": face_data.gender,
+                "age": face_data.age,
+                "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+            self.new_clients[person_id] = client_data
+            self.logger.info(f"New client added with ID: {person_id}")
+            if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
+                self.update_client_index()
+            return person_id
+    except Exception as e:
+        logger.error(f'Exception add image: {e}')
 
-    def add_employer_to_db(self, img_path, person_id):
+
+def update_client_index(self):
+    try:
+        for person_id, client_data in self.new_clients.items():
+            embedding = np.array(client_data["embedding"]).astype('float32').reshape(1, -1)
+            self.client_index.add(embedding)
+            self.client_indices.append(person_id)
+            self.clients_db.insert_one(client_data)
+        self.new_clients.clear()
+    except Exception as e:
+        self.logger.error(f'Exception updating index: {e}')
+
+
+def send_client_data(self, camera_id, person_id, date, file_path, face_data):
+    try:
+        url = os.getenv("SEND_CLIENT_URL")
+        token = os.getenv("TOKEN_CLIENT_API")
+        headers = {
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        gender = face_data.gender
+        age = face_data.age
+        data = {
+            "camera_id": camera_id,
+            "person_id": person_id,
+            "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+            "gender": gender,
+            "age": age
+        }
+
+        files = {'images': open(file_path, 'rb')}
+        response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
+        self.logger.info(f"Sent data: {response.status_code}")
+        if response.status_code != 201:
+            self.logger.error(f"Error: {response.status_code} for client {person_id}")
+        else:
+            self.logger.info(f"Report  sent successfully for client {person_id}")
+    except Exception as e:
+        self.logger.error(f'Exception sending client data: {e}')
+
+
+def send_background(self, file_path, embedding):
+    image = cv2.imread(file_path)
+    image_data = self.app.get(image)
+    for data in image_data:
+        if compute_sim(data.embedding, embedding) > 0.8:
+            x1, y1, x2, y2 = [int(val) for val in data.bbox]
+            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.imwrite(file_path, image)
+            return file_path
+    return False
+
+
+def add_employer_to_db(self, img_path, person_id):
+    try:
+        image_name = img_path.split('/')[-1]
+        folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
+        os.makedirs(folder, exist_ok=True)
+        os.rename(img_path, f"{folder}/{image_name}")
+        url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{person_id}'
+        token = os.getenv("TOKEN_FOR_API")
+        data = {
+            'image': image_name,
+        }
+
         try:
-            image_name = img_path.split('/')[-1]
-            folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
-            os.makedirs(folder, exist_ok=True)
-            os.rename(img_path, f"{folder}/{image_name}")
-            url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{person_id}'
-            token = os.getenv("TOKEN_FOR_API")
-            data = {
-                'image': image_name,
-            }
-
-            try:
-                with requests.post(
-                        url, data=data, headers={
-                            "Accept": "application/json",
-                            "Authorization": f"Bearer {token}"
-                        },
-                        timeout=10
-                ) as response:
-                    logger.info(f'status code add to db : {response.status_code}')
-                    self.check_add_to_db = True
-            except Exception as e:
-                logger.error(f'Exception to sent: {e}')
+            with requests.post(
+                    url, data=data, headers={
+                        "Accept": "application/json",
+                        "Authorization": f"Bearer {token}"
+                    },
+                    timeout=10
+            ) as response:
+                logger.info(f'status code add to db : {response.status_code}')
+                self.check_add_to_db = True
         except Exception as e:
-            logger.error(f'Exception add image: {e}')
+            logger.error(f'Exception to sent: {e}')
+    except Exception as e:
+        logger.error(f'Exception add image: {e}')
 
 
 if __name__ == '__main__':
