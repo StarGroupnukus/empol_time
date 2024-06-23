@@ -1,12 +1,11 @@
 import os
 from datetime import datetime
-
-from insightface.app import FaceAnalysis
-from pymongo import MongoClient
+import cv2
 
 
-def add_face_data_to_db(app,db, image_path):
-    face_data = app.get(image_path)[0]
+def add_face_data_to_db(app, db, image_path):
+    image = cv2.imread(image_path)
+    face_data = app.get(image)[0]
 
     client_data = {
         'score': 0,
