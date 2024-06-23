@@ -85,7 +85,8 @@ class MainRunner:
             if not camera_directory.startswith('test'):
                 continue
             camera_directory = f"{self.images_folder}/{camera_directory}"
-            camera_id = camera_directory.split(' ')[1]
+            # camera_id = camera_directory.split(' ')[1]
+            camera_id = '2'
             time.sleep(1)
             self.logger.warning(f'Camera start --> {camera_directory}')
             thread = threading.Thread(target=self.classify_images, args=(camera_directory, camera_id))
