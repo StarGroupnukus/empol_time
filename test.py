@@ -26,7 +26,6 @@ TRESHOLD_ADD_DB = 19
 DIMENSIONS = 512
 INDEX_UPDATE_TRESHOLD = 5
 INIT_IMAGE_PATH = './pavel.png'
-# ADD_TO_CLIENT_DB_THRESHOLD =20
 logger = setup_logger('MainRunner', 'logs/main.log')
 
 
@@ -68,6 +67,7 @@ class MainRunner:
         if self.counter_db.find_one({'_id': counter_id}) is None:
             self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
             self.logger.info(f"Initialized counter for {counter_id}")
+
     def add_face_data_to_db(self):
         image = cv2.imread(INIT_IMAGE_PATH)
         face_data = self.app.get(image)[0]
@@ -117,6 +117,7 @@ class MainRunner:
             else:
                 face_data = get_faces_data(faces)
                 score, person_id = self.is_employee(face_data, file_path)
+                print("Employee Score", score)
                 if score == 0:
                     os.makedirs(f"{folder_path}/error", exist_ok=True)
                     os.rename(file_path, f'{folder_path}/error/{file}')
