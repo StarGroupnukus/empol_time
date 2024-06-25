@@ -253,7 +253,7 @@ class MainRunner:
     def update_client_index(self):
         try:
             for person_id, client_data in self.new_clients.items():
-                embedding = np.array(client_data["embedding"]).astype('float32').reshape(1, -1)
+                embedding = np.array(client_data["embedding"]).astype(np.float32).reshape(1, -1)
                 self.client_index.add(embedding)
                 self.client_indices.append(person_id)
                 self.clients_db.insert_one(client_data)
