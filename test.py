@@ -49,6 +49,8 @@ class MainRunner:
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
         self.new_clients = {}
 
+
+
     def setup_app(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
@@ -103,6 +105,8 @@ class MainRunner:
         for file in list_files:
             file_path = os.path.join(folder_path, file)
             orig_image_path = file_path.replace('SNAP', 'BACKGROUND')
+            if not os.path.exists(orig_image_path):
+                continue
             if os.path.getsize(file_path) == 0:
                 os.remove(file_path)
                 os.remove(orig_image_path)
