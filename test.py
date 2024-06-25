@@ -96,6 +96,8 @@ class MainRunner:
             threads.append(thread)
         for thread in threads:
             thread.join()
+        if len(self.new_clients) > 0:
+            self.update_client_index()
         if self.check_add_to_db:
             update_database(self.org_name, app=self.app)
             self.check_add_to_db = False
