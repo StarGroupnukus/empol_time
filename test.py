@@ -280,74 +280,71 @@ class MainRunner:
         except Exception as e:
             self.logger.error(f'Exception updating index: {e}')
 
-
-def send_client_data(self, camera_id, person_id, date, file_path, face_data):
-    try:
-        url = os.getenv("SEND_CLIENT_URL")
-        token = os.getenv("TOKEN_CLIENT_API")
-        headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
-        gender = face_data.gender
-        age = face_data.age
-        data = {
-            "camera_id": camera_id,
-            "person_id": person_id,
-            "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-            "gender": gender,
-            "age": age
-        }
-
-        files = {'images': open(file_path, 'rb')}
-        response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
-        self.logger.info(f"Sent data: {response.status_code}")
-        if response.status_code != 201:
-            self.logger.error(f"Error: {response.status_code} for client {person_id}")
-        else:
-            self.logger.info(f"Report  sent successfully for client {person_id}")
-    except Exception as e:
-        self.logger.error(f'Exception sending client data: {e}')
-
-
-def send_background(self, file_path, embedding):
-    image = cv2.imread(file_path)
-    image_data = self.app.get(image)
-    for data in image_data:
-        if compute_sim(data.embedding, embedding) > 0.8:
-            x1, y1, x2, y2 = [int(val) for val in data.bbox]
-            cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.imwrite(file_path, image)
-            return file_path
-    return False
-
-
-def add_employer_to_db(self, img_path, person_id):
-    try:
-        image_name = img_path.split('/')[-1]
-        folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
-        os.makedirs(folder, exist_ok=True)
-        os.rename(img_path, f"{folder}/{image_name}")
-        url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{person_id}'
-        token = os.getenv("TOKEN_FOR_API")
-        data = {
-            'image': image_name,
-        }
-
+    def send_client_data(self, camera_id, person_id, date, file_path, face_data):
         try:
-            with requests.post(
-                    url, data=data, headers={
-                        "Accept": "application/json",
-                        "Authorization": f"Bearer {token}"
-                    },
-                    timeout=10
-            ) as response:
-                logger.info(f'status code add to db : {response.status_code}')
-                self.check_add_to_db = True
+            url = os.getenv("SEND_CLIENT_URL")
+            token = os.getenv("TOKEN_CLIENT_API")
+            headers = {
+                "Accept": "application/json",
+                "Authorization": f"Bearer {token}"
+            }
+            gender = face_data.gender
+            age = face_data.age
+            data = {
+                "camera_id": camera_id,
+                "person_id": person_id,
+                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                "gender": gender,
+                "age": age
+            }
+
+            files = {'images': open(file_path, 'rb')}
+            response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
+            self.logger.info(f"Sent data: {response.status_code}")
+            if response.status_code != 201:
+                self.logger.error(f"Error: {response.status_code} for client {person_id}")
+            else:
+                self.logger.info(f"Report  sent successfully for client {person_id}")
         except Exception as e:
-            logger.error(f'Exception to sent: {e}')
-    except Exception as e:
-        logger.error(f'Exception add image: {e}')
+            self.logger.error(f'Exception sending client data: {e}')
+
+    def send_background(self, file_path, embedding):
+        image = cv2.imread(file_path)
+        image_data = self.app.get(image)
+        for data in image_data:
+            if compute_sim(data.embedding, embedding) > 0.8:
+                x1, y1, x2, y2 = [int(val) for val in data.bbox]
+                cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.imwrite(file_path, image)
+                return file_path
+        return False
+
+    def add_employer_to_db(self, img_path, person_id):
+        try:
+            image_name = img_path.split('/')[-1]
+            folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
+            os.makedirs(folder, exist_ok=True)
+            os.rename(img_path, f"{folder}/{image_name}")
+            url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{person_id}'
+            token = os.getenv("TOKEN_FOR_API")
+            data = {
+                'image': image_name,
+            }
+
+            try:
+                with requests.post(
+                        url, data=data, headers={
+                            "Accept": "application/json",
+                            "Authorization": f"Bearer {token}"
+                        },
+                        timeout=10
+                ) as response:
+                    logger.info(f'status code add to db : {response.status_code}')
+                    self.check_add_to_db = True
+            except Exception as e:
+                logger.error(f'Exception to sent: {e}')
+        except Exception as e:
+            logger.error(f'Exception add image: {e}')
 
 
 if __name__ == '__main__':
