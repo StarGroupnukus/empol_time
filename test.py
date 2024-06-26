@@ -275,7 +275,8 @@ class MainRunner:
                 self.client_index.add(vectors)
                 self.client_indices.extend(client_ids)
                 self.clients_db.insert_many(client_data_list)
-                self.logger.info(f"Client index updated and added to clients_db", self.client_index.ntotal)
+                self.logger.info(
+                    f"Client index updated and added to clients_db , Index length: {self.client_index.ntotal}")
             self.new_clients.clear()
         except Exception as e:
             self.logger.error(f'Exception updating index: {e}')
