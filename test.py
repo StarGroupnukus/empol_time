@@ -209,6 +209,7 @@ class MainRunner:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
                 client_data = {
+                    "type": 'regular_client',
                     'score': float(score),
                     "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
@@ -233,7 +234,7 @@ class MainRunner:
                 )
                 person_id = counter['seq']
                 client_data = {
-                    "person_id": int(person_id),
+                    "type": 'new_client',                    "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
                     "gender": str(face_data.gender),
                     "age": str(face_data.age),
@@ -254,6 +255,7 @@ class MainRunner:
                 self.client_index.add(embedding)
                 self.client_indices.append(person_id)
                 self.clients_db.insert_one(client_data)
+                self.logger.info(f"Client index updated and added to clients_db",self.client_index.ntotal)
             self.new_clients.clear()
         except Exception as e:
             self.logger.error(f'Exception updating index: {e}')
