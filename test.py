@@ -236,10 +236,10 @@ class MainRunner:
                 )
                 person_id = counter['seq']
                 client_data = {
-                    "person_id": person_id,
+                    "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
-                    "gender": face_data.gender,
-                    "age": face_data.age,
+                    "gender": str(face_data.gender),
+                    "age": str(face_data.age),
                     "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 self.new_clients[person_id] = client_data
