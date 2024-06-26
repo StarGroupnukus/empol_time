@@ -49,8 +49,6 @@ class MainRunner:
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
         self.new_clients = {}
 
-
-
     def setup_app(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
@@ -73,7 +71,6 @@ class MainRunner:
     def add_face_data_to_db(self):
         image = cv2.imread(INIT_IMAGE_PATH)
         face_data = self.app.get(image)[0]
-
         client_data = {
             "person_id": 0,
             "embedding": face_data.embedding.tolist(),
@@ -212,11 +209,11 @@ class MainRunner:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
                 client_data = {
-                    'score': score,
-                    "person_id": person_id,
+                    'score': float(score),
+                    "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
-                    "gender": face_data.gender,
-                    "age": face_data.age,
+                    "gender": int(face_data.gender),
+                    "age": int(face_data.age),
                     "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 }
                 self.clients_db.insert_one(client_data)
