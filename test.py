@@ -218,7 +218,7 @@ class MainRunner:
                 }
                 self.clients_db.insert_one(client_data)
         except Exception as e:
-            logger.error(f'Exception add image: {e}')
+            logger.error(f'Exception add image for regular client: {e}')
 
     def add_new_client_to_db(self, face_data):
         self.logger.info("Attempting to add a new client.")
