@@ -145,9 +145,11 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                            # добавление в базу и проверка
+                            self.add_regular_client_to_db(face_data, score, person_id, file_path)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
                     else:
-                        person_id = self.add_new_client_to_db(face_data)
+                        person_id = self.add_new_client_to_db(face_data, file_path)
                         if person_id:
                             os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
@@ -171,7 +173,7 @@ class MainRunner:
             person_id, score = person_ids[0], scores[0]
 
             # добавление в базу и проверка
-            self.add_regular_client_to_db(face_data, score, person_id, file_path)
+            # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
 
         except Exception as e:
@@ -215,13 +217,14 @@ class MainRunner:
                     "embedding": face_data.embedding.tolist(),
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'image_path': file_path
                 }
                 self.clients_db.insert_one(client_data)
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
-    def add_new_client_to_db(self, face_data):
+    def add_new_client_to_db(self, face_data, file_path):
         self.logger.info("Attempting to add a new client.")
         try:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
@@ -239,7 +242,8 @@ class MainRunner:
                     "embedding": face_data.embedding.tolist(),
                     "gender": str(face_data.gender),
                     "age": str(face_data.age),
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'image_path': file_path
                 }
                 self.new_clients[person_id] = client_data
                 self.logger.info(f"New client added with ID: {person_id}")
@@ -249,17 +253,6 @@ class MainRunner:
         except Exception as e:
             logger.error(f'Exception add image: {e}')
 
-    # def update_client_index(self):
-    #     try:
-    #         for person_id, client_data in self.new_clients.items():
-    #             embedding = np.array(client_data["embedding"]).astype(np.float32).reshape(1, -1)
-    #             self.client_index.add(embedding)
-    #             self.client_indices.append(person_id)
-    #             self.clients_db.insert_one(client_data)
-    #             self.logger.info(f"Client index updated and added to clients_db",self.client_index.ntotal)
-    #         self.new_clients.clear()
-    #     except Exception as e:
-    #         self.logger.error(f'Exception updating index: {e}')
     def update_client_index(self):
         try:
             embeddings = []
