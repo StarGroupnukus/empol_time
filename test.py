@@ -209,7 +209,7 @@ class MainRunner:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
                 client_data = {
-                    "type": 'regular_client',
+                    "type": str('regular_client'),
                     'score': float(score),
                     "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
@@ -234,7 +234,8 @@ class MainRunner:
                 )
                 person_id = counter['seq']
                 client_data = {
-                    "type": 'new_client', "person_id": int(person_id),
+                    "type": str('new_client'),
+                    "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
                     "gender": str(face_data.gender),
                     "age": str(face_data.age),
