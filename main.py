@@ -222,7 +222,8 @@ class MainRunner:
                 'image_path': file_path.split("/")[-1],
             }
             self.clients_db.insert_one(client_data)
-            logger.info("===============Regular client checked and added to db=================")
+            logger.info(
+                f"===============Regular client checked and added to db DetScore:{face_data.det_score} PoseX:{abs(face_data.pose[1])}=================")
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
