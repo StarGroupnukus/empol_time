@@ -146,6 +146,7 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                            print(f"================is_regular_client score:{score} id: {person_id}================")
                             # добавление в базу и проверка
                             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
@@ -172,7 +173,6 @@ class MainRunner:
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
-            print(f"================is_regular_client score:{score} id: {person_id}================")
             # добавление в базу и проверка
             # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
