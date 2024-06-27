@@ -150,7 +150,7 @@ class MainRunner:
                             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
                     else:
-                        person_id = self.add_new_client_to_db(face_data, file_path,date)
+                        person_id = self.add_new_client_to_db(face_data, file_path, date)
                         if person_id:
                             os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
@@ -207,7 +207,7 @@ class MainRunner:
             self.logger.error(e)
             return 0, 0
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path,date):
+    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
         try:
             # if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
             #         face_data.pose[0]) < POSE_TRESHOLD:
@@ -226,7 +226,7 @@ class MainRunner:
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
-    def add_new_client_to_db(self, face_data, file_path):
+    def add_new_client_to_db(self, face_data, file_path, date):
         self.logger.info("Attempting to add a new client.")
         try:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
