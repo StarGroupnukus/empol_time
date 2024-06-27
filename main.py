@@ -147,10 +147,10 @@ class MainRunner:
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                             # добавление в базу и проверка
-                            self.add_regular_client_to_db(face_data, score, person_id, file_path)
+                            self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
                     else:
-                        person_id = self.add_new_client_to_db(face_data, file_path)
+                        person_id = self.add_new_client_to_db(face_data, file_path,date)
                         if person_id:
                             os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
@@ -207,22 +207,22 @@ class MainRunner:
             self.logger.error(e)
             return 0, 0
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path):
+    def add_regular_client_to_db(self, face_data, score, person_id, file_path,date):
         try:
-            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
-                    face_data.pose[0]) < POSE_TRESHOLD:
-                client_data = {
-                    "type": str('regular_client'),
-                    'score': float(score),
-                    "person_id": int(person_id),
-                    "embedding": face_data.embedding.tolist(),
-                    "gender": int(face_data.gender),
-                    "age": int(face_data.age),
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'image_path': file_path.split("/")[-1],
-                }
-                self.clients_db.insert_one(client_data)
-                logger.info("===============Regular client checked and added to db=================")
+            # if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
+            #         face_data.pose[0]) < POSE_TRESHOLD:
+            client_data = {
+                "type": str('regular_client'),
+                'score': float(score),
+                "person_id": int(person_id),
+                "embedding": face_data.embedding.tolist(),
+                "gender": int(face_data.gender),
+                "age": int(face_data.age),
+                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                'image_path': file_path.split("/")[-1],
+            }
+            self.clients_db.insert_one(client_data)
+            logger.info("===============Regular client checked and added to db=================")
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
@@ -244,7 +244,7 @@ class MainRunner:
                     "embedding": face_data.embedding.tolist(),
                     "gender": str(face_data.gender),
                     "age": str(face_data.age),
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                     'image_path': file_path.split("/")[-1],
                 }
                 self.new_clients[person_id] = client_data
