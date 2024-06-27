@@ -172,7 +172,7 @@ class MainRunner:
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
-            print(f"================is_regular_client score:{score}================")
+            print(f"================is_regular_client score:{score} id: {person_id}================")
             # добавление в базу и проверка
             # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
