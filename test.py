@@ -231,6 +231,9 @@ class MainRunner:
         try:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
+
+                self.check_new_clients(face_data)
+
                 counter = self.counter_db.find_one_and_update(
                     {'_id': 'client_id'},
                     {'$inc': {'seq': 1}},
@@ -254,6 +257,11 @@ class MainRunner:
                 return person_id
         except Exception as e:
             logger.error(f'Exception add image: {e}')
+
+    def check_new_clients(self, face_data):
+
+        for client in self.new_clients:
+            pass
 
     def update_client_index(self):
         try:
