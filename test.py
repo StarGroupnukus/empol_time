@@ -81,11 +81,12 @@ class MainRunner:
     def main_run(self):
         threads = []
         for camera_directory in self.cameras_path_directories:
-            if not camera_directory.startswith('test'):
+            # if not camera_directory.startswith('test'):
+            if not camera_directory.startswith('cam'):
                 continue
             camera_directory = f"{self.images_folder}/{camera_directory}"
-            # camera_id = camera_directory.split(' ')[1]
-            camera_id = '2'
+            camera_id = camera_directory.split(' ')[1]
+            # camera_id = '2'
             time.sleep(1)
             self.logger.warning(f'Camera start --> {camera_directory}')
             thread = threading.Thread(target=self.classify_images, args=(camera_directory, camera_id))
@@ -171,7 +172,7 @@ class MainRunner:
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
-
+            print(f"================is_regular_client score:{score}================")
             # добавление в базу и проверка
             # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
@@ -218,7 +219,7 @@ class MainRunner:
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
                     "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'image_path': file_path
+                    'image_path': file_path.split("/")[-1],
                 }
                 self.clients_db.insert_one(client_data)
         except Exception as e:
@@ -243,7 +244,7 @@ class MainRunner:
                     "gender": str(face_data.gender),
                     "age": str(face_data.age),
                     "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'image_path': file_path
+                    'image_path': file_path.split("/")[-1],
                 }
                 self.new_clients[person_id] = client_data
                 self.logger.info(f"New client added with ID: {person_id}")
