@@ -232,36 +232,40 @@ class MainRunner:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
 
-                self.check_new_clients(face_data)
-
-                counter = self.counter_db.find_one_and_update(
-                    {'_id': 'client_id'},
-                    {'$inc': {'seq': 1}},
-                    upsert=True,
-                    return_document=True
-                )
-                person_id = counter['seq']
-                client_data = {
-                    "type": str('new_client'),
-                    "person_id": int(person_id),
-                    "embedding": face_data.embedding.tolist(),
-                    "gender": str(face_data.gender),
-                    "age": str(face_data.age),
-                    "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                    'image_path': file_path.split("/")[-1],
-                }
-                self.new_clients[person_id] = client_data
-                self.logger.info(f"New client added with ID: {person_id}")
-                if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
-                    self.update_client_index()
-                return person_id
+                if self.check_new_clients(face_data):
+                    counter = self.counter_db.find_one_and_update(
+                        {'_id': 'client_id'},
+                        {'$inc': {'seq': 1}},
+                        upsert=True,
+                        return_document=True
+                    )
+                    person_id = counter['seq']
+                    client_data = {
+                        "type": str('new_client'),
+                        "person_id": int(person_id),
+                        "embedding": face_data.embedding.tolist(),
+                        "gender": str(face_data.gender),
+                        "age": str(face_data.age),
+                        "date": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'image_path': file_path.split("/")[-1],
+                    }
+                    self.new_clients[person_id] = client_data
+                    self.logger.info(f"New client added with ID: {person_id}")
+                    if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
+                        self.update_client_index()
+                    return person_id
         except Exception as e:
             logger.error(f'Exception add image: {e}')
 
     def check_new_clients(self, face_data):
-
-        for client in self.new_clients:
-            pass
+        new_embedding = np.array(face_data.embedding)
+        for client_id, client_data in self.new_clients.items():
+            existing_embedding = np.array(client_data['embedding'])
+            similarity = compute_sim(new_embedding, existing_embedding)
+            if similarity > 0.6:
+                self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
+                return False
+        return True
 
     def update_client_index(self):
         try:
