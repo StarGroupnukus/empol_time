@@ -222,6 +222,7 @@ class MainRunner:
                     'image_path': file_path.split("/")[-1],
                 }
                 self.clients_db.insert_one(client_data)
+                logger.info("===============Regular client checked and added to db=================")
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
