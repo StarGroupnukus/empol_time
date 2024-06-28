@@ -2,6 +2,7 @@ import os
 import threading
 import time
 from datetime import datetime
+
 import cv2
 import faiss
 import numpy as np
@@ -9,6 +10,7 @@ import requests
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
+
 from download_file import update_database
 from funcs import extract_date_from_filename, send_report, get_faces_data, setup_logger, compute_sim
 
@@ -29,17 +31,19 @@ class MainRunner:
         self.images_folder = images_folder
         self.org_name = images_folder.split('/')[-1]
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
-        self.app = FaceAnalysis()
-        self.app.prepare(ctx_id=0)
+        self.app = self.setup_app()
         self.check_add_to_db = False
-        update_database(self.org_name)
-        self.app_detection = FaceAnalysis(allowed_modules='detection')
-        self.app_detection.prepare(ctx_id=0)
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
         self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
         with open(f'indices{self.org_name}.npy', 'rb') as f:
             self.indices = np.load(f, allow_pickle=True)
+
+    def setup_app(self):
+        app = FaceAnalysis()
+        app.prepare(ctx_id=0)
+        update_database(self.org_name)
+        return app
 
     def main_run(self):
         threads = []
