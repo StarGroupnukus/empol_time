@@ -122,7 +122,7 @@ class MainRunner:
             else:
                 face_data = get_faces_data(faces)
                 score, person_id = self.is_employee(face_data, file_path)
-                logger.info("Employee Score", score)
+                logger.info(f"Employee Score {score}")
                 if score == 0:
                     os.makedirs(f"{folder_path}/error", exist_ok=True)
                     os.rename(file_path, f'{folder_path}/error/{file}')
