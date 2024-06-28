@@ -190,7 +190,7 @@ class MainRunner:
             scores, ids = [i[0].tolist() for i in index.search(query, 5)]
             indices = self.employee_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
-            person_id, score = max(person_ids), scores[0]
+            person_id, score = person_ids[0], scores[0]
 
             images_count = self.employees_db.count_documents({'person_id': person_id})
 
