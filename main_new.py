@@ -284,10 +284,10 @@ class MainRunner:
             embeddings = []
             client_ids = []
             client_data_list = []
-            for client_id, client_data in self.new_clients.items():
+            for client_data in self.new_clients:
                 embedding = np.array(client_data["embedding"])
                 embeddings.append(embedding)
-                client_ids.append(client_id)
+                client_ids.append(client_data["person_id"])
                 client_data_list.append(client_data)
             if embeddings:
                 vectors = np.array(embeddings).astype('float32')
