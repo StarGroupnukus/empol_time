@@ -112,7 +112,7 @@ class MainRunner:
             if np.all(face_data.embedding) == 0:
                 return 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
-            scores, ids = [i[0].tolist() for i in self.fais_index.search(query, 1)]
+            scores, ids = [i[0].tolist() for i in self.fais_index.search(query, 5)]
             person_ids = [int(self.indices[id]) for id in ids]
             person_id, score = person_ids[0], scores[0]
 
