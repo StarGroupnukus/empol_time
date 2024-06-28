@@ -146,6 +146,7 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                            logger.info(f"================is_regular_client score:{score}================")
                             # добавление в базу и проверка
                             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
@@ -165,16 +166,12 @@ class MainRunner:
         try:
             if np.all(face_data.embedding) == 0:
                 return False, 0, 0
-
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             index = self.client_index
             scores, ids = [i[0].tolist() for i in index.search(query, 5)]
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
-            logger.info(f"================is_regular_client score:{score}================")
-            # добавление в базу и проверка
-            # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
 
         except Exception as e:
