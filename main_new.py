@@ -223,6 +223,8 @@ class MainRunner:
                 }
                 self.clients_db.insert_one(client_data)
                 logger.info("===============Regular client checked and added to db=================")
+            else:
+                logger.info("===============One of the conditions failed===============")
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
