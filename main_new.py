@@ -17,7 +17,7 @@ from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup
 # from create_start_db import add_face_data_to_db
 
 load_dotenv()
-
+CHECK_NEW_CLIENT = 0.5
 TRESHOLD_IS_DB = 14
 POSE_TRESHOLD = 30
 DET_SCORE_TRESH = 0.75
@@ -265,7 +265,7 @@ class MainRunner:
         for client_id, client_data in self.new_clients.items():
             existing_embedding = np.array(client_data['embedding'])
             similarity = compute_sim(new_embedding, existing_embedding)
-            if similarity > 0.6:
+            if similarity > CHECK_NEW_CLIENT:
                 self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
                 return client_id
         return 0
