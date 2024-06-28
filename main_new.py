@@ -129,6 +129,9 @@ class MainRunner:
                     os.remove(orig_image_path)
                     continue
                 if score > TRESHOLD_IS_DB:
+                    os.makedirs(f"{folder_path}/recognized", exist_ok=True)
+                    os.rename(f'{folder_path}/{file}',
+                              f'{folder_path}/recognized/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                     back_file_name = self.send_background(orig_image_path, face_data.embedding)
                     if back_file_name:
                         send_report(camera_id, person_id, back_file_name, date, score, logger)
