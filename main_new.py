@@ -47,7 +47,7 @@ class MainRunner:
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
-        self.new_clients = {}
+        self.new_clients = []
 
     def setup_app(self):
         app = FaceAnalysis()
@@ -252,7 +252,7 @@ class MainRunner:
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                     'image_path': file_path.split("/")[-1],
                 }
-                self.new_clients[person_id] = client_data
+                self.new_clients.append(client_data)
                 self.logger.info(f"New client added with ID: {person_id}")
                 if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
                     self.update_client_index()
@@ -260,14 +260,23 @@ class MainRunner:
         except Exception as e:
             logger.error(f'Exception add image: {e}')
 
+    # def check_new_clients(self, face_data):
+    #     new_embedding = np.array(face_data.embedding)
+    #     for client_id, client_data in self.new_clients.items():
+    #         existing_embedding = np.array(client_data['embedding'])
+    #         similarity = compute_sim(new_embedding, existing_embedding)
+    #         if similarity > CHECK_NEW_CLIENT:
+    #             self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
+    #             return client_id
+    #     return 0
     def check_new_clients(self, face_data):
         new_embedding = np.array(face_data.embedding)
-        for client_id, client_data in self.new_clients.items():
+        for client_data in self.new_clients:
             existing_embedding = np.array(client_data['embedding'])
             similarity = compute_sim(new_embedding, existing_embedding)
             if similarity > CHECK_NEW_CLIENT:
-                self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
-                return client_id
+                self.logger.info(f"Client with similar embedding already exists in new_clients.")
+                return client_data['person_id']
         return 0
 
     def update_client_index(self):
