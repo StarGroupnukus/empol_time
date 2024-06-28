@@ -122,7 +122,7 @@ class MainRunner:
             else:
                 face_data = get_faces_data(faces)
                 score, person_id = self.is_employee(face_data, file_path)
-                print("Employee Score", score)
+                logger.info("Employee Score", score)
                 if score == 0:
                     os.makedirs(f"{folder_path}/error", exist_ok=True)
                     os.rename(file_path, f'{folder_path}/error/{file}')
@@ -155,7 +155,7 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/new_clients/{person_id}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                            print(f'new client {person_id} ')
+                            logger.info(f'new client {person_id} ')
                         else:
                             os.makedirs(f"{folder_path}/no_good", exist_ok=True)
                             os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
@@ -172,7 +172,7 @@ class MainRunner:
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
-            print(f"================is_regular_client score:{score}================")
+            logger.info(f"================is_regular_client score:{score}================")
             # добавление в базу и проверка
             # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
@@ -207,7 +207,7 @@ class MainRunner:
             self.logger.error(e)
             return 0, 0
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path):
+    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
         try:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
@@ -365,5 +365,5 @@ if __name__ == '__main__':
         try:
             test.main_run()
         except Exception as e:
-            print(e)
+            logger.error(e)
         time.sleep(5)
