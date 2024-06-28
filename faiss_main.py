@@ -27,7 +27,7 @@ DIMENSIONS = 512
 
 
 class MainRunner:
-    def __init__(self, images_folder, ):
+    def __init__(self, images_folder):
         self.images_folder = images_folder
         self.org_name = images_folder.split('/')[-1]
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
@@ -42,7 +42,7 @@ class MainRunner:
     def setup_app(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
-        update_database(self.org_name)
+        update_database(self.org_name,self.app)
         return app
 
     def main_run(self):
