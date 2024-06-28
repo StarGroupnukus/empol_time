@@ -42,7 +42,7 @@ class MainRunner:
     def setup_app(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
-        update_database(self.org_name,app)
+        # update_database(self.org_name,app)
         return app
 
     def main_run(self):
