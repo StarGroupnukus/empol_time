@@ -102,28 +102,44 @@ def create_indexes(db, org_id):
     with open(f'indices{org_id}.npy', 'wb') as f:
         np.save(f, indices)
 
-def new_create_indexes(db, org_id, role):
-    docs = db.find()
-    embeddings = []
-    indices = []
-    for doc in docs:
-        embeddings.append(doc['embedding'])
-        indices.append(doc['person_id'])
 
-    if len(embeddings) == 0:
-        return None, None
-    vectors = np.array(embeddings).astype('float32')
-    faiss.normalize_L2(vectors)
-    index = faiss.IndexFlatIP(vectors.shape[1])
-    index.add(vectors)
-    if role != 'client':
-        faiss.write_index(index, f'index_file{org_id}.index')
-        with open(f'indices{org_id}.npy', 'wb') as f:
-            np.save(f, indices)
-    else:
-        if len(vectors) == 0:
-            return faiss.IndexFlatIP(512), []
-        return index, indices
+def new_create_indexes(db, org_id, role):
+    try:
+        docs = db.find()
+        embeddings = []
+        indices = []
+        for doc in docs:
+            embeddings.append(doc['embedding'])
+            indices.append(doc['person_id'])
+
+        vectors = np.array(embeddings).astype('float32')
+        faiss.normalize_L2(vectors)
+        index = faiss.IndexFlatIP(vectors.shape[1])
+        index.add(vectors)
+        if role != 'client':
+            faiss.write_index(index, f'index_file{org_id}.index')
+            with open(f'indices{org_id}.npy', 'wb') as f:
+                np.save(f, indices)
+        else:
+            return index, indices
+    except Exception as e:
+        logger.error(f"Exception in new_create_indexes: {e}")
+
+
+
+def new_update_database(db, org_name, app):
+    file_name = f'{org_name}.json'
+    download_file(file_name)
+
+    data = get_data(file_name)
+    collection = db['employees']
+    start_time = time.time()
+    process_json(data, collection, app)
+    print(f"Time taken: {time.time() - start_time} seconds")
+    os.remove(file_name)
+
+    new_create_indexes(collection, org_name,'employee')
+
 
 
 def update_database(org_name, app):
@@ -138,7 +154,6 @@ def update_database(org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    # Обновить new_create_indexes
     create_indexes(db, org_name)
 
 

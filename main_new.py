@@ -11,10 +11,8 @@ from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
-from download_file import update_database, create_indexes
+from download_file import update_database, new_create_indexes
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
-
-# from create_start_db import add_face_data_to_db
 
 load_dotenv()
 CHECK_NEW_CLIENT = 0.5
@@ -57,25 +55,23 @@ class MainRunner:
 
     def initialize_client_index(self):
         client_data = list(self.clients_db.find())
-        if not client_data:
-            self.logger.warning("Client index is not created due to empty database. Initializing with an empty index.")
-            self.add_face_data_to_db()
-            return create_indexes(self.clients_db, self.org_name, 'client')
-        return create_indexes(self.clients_db, self.org_name, 'client')
+        if len(client_data) == 0:
+            self.init_clients_db()
+            return new_create_indexes(self.clients_db, self.org_name, 'client')
+        return new_create_indexes(self.clients_db, self.org_name, 'client')
 
     def initialize_counter(self, counter_id):
         if self.counter_db.find_one({'_id': counter_id}) is None:
             self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
             self.logger.info(f"Initialized counter for {counter_id}")
 
-    def add_face_data_to_db(self):
+    def init_clients_db(self):
         image = cv2.imread(INIT_IMAGE_PATH)
         face_data = self.app.get(image)[0]
         client_data = {
             "person_id": 0,
             "embedding": face_data.embedding.tolist(),
         }
-
         self.clients_db.insert_one(client_data)
 
     def main_run(self):
@@ -149,7 +145,8 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                            logger.info(f"================is_regular_client score:{score} id:{person_id}================")
+                            logger.info(
+                                f"================is_regular_client score:{score} id:{person_id}================")
                             # добавление в базу и проверка
                             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
@@ -262,15 +259,6 @@ class MainRunner:
         except Exception as e:
             logger.error(f'Exception add image: {e}')
 
-    # def check_new_clients(self, face_data):
-    #     new_embedding = np.array(face_data.embedding)
-    #     for client_id, client_data in self.new_clients.items():
-    #         existing_embedding = np.array(client_data['embedding'])
-    #         similarity = compute_sim(new_embedding, existing_embedding)
-    #         if similarity > CHECK_NEW_CLIENT:
-    #             self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
-    #             return client_id
-    #     return 0
     def check_new_clients(self, face_data):
         new_embedding = np.array(face_data.embedding)
         for client_data in self.new_clients:
