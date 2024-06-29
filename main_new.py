@@ -17,7 +17,7 @@ from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup
 # from create_start_db import add_face_data_to_db
 
 load_dotenv()
-
+CHECK_NEW_CLIENT = 0.5
 TRESHOLD_IS_DB = 14
 POSE_TRESHOLD = 30
 DET_SCORE_TRESH = 0.75
@@ -47,7 +47,7 @@ class MainRunner:
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
-        self.new_clients = {}
+        self.new_clients = []
 
     def setup_app(self):
         app = FaceAnalysis()
@@ -122,13 +122,16 @@ class MainRunner:
             else:
                 face_data = get_faces_data(faces)
                 score, person_id = self.is_employee(face_data, file_path)
-                print("Employee Score", score)
+                logger.info(f"Employee Score {score}")
                 if score == 0:
                     os.makedirs(f"{folder_path}/error", exist_ok=True)
                     os.rename(file_path, f'{folder_path}/error/{file}')
                     os.remove(orig_image_path)
                     continue
                 if score > TRESHOLD_IS_DB:
+                    os.makedirs(f"{folder_path}/recognized", exist_ok=True)
+                    os.rename(f'{folder_path}/{file}',
+                              f'{folder_path}/recognized/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                     back_file_name = self.send_background(orig_image_path, face_data.embedding)
                     if back_file_name:
                         send_report(camera_id, person_id, back_file_name, date, score, logger)
@@ -146,6 +149,7 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/regular_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
+                            logger.info(f"================is_regular_client score:{score} id:{person_id}================")
                             # добавление в базу и проверка
                             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
                             # self.send_client_data(camera_id, person_id, date, file_path, face_data)
@@ -155,7 +159,7 @@ class MainRunner:
                             os.makedirs(f"{folder_path}/new_clients", exist_ok=True)
                             os.rename(f'{folder_path}/{file}',
                                       f'{folder_path}/new_clients/{person_id}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
-                            print(f'new client {person_id} ')
+                            logger.info(f'new client {person_id} ')
                         else:
                             os.makedirs(f"{folder_path}/no_good", exist_ok=True)
                             os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
@@ -165,16 +169,12 @@ class MainRunner:
         try:
             if np.all(face_data.embedding) == 0:
                 return False, 0, 0
-
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             index = self.client_index
             scores, ids = [i[0].tolist() for i in index.search(query, 5)]
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
-            print(f"================is_regular_client score:{score}================")
-            # добавление в базу и проверка
-            # self.add_regular_client_to_db(face_data, score, person_id, file_path)
             return person_id, score
 
         except Exception as e:
@@ -190,7 +190,7 @@ class MainRunner:
             scores, ids = [i[0].tolist() for i in index.search(query, 5)]
             indices = self.employee_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
-            person_id, score = max(person_ids), scores[0]
+            person_id, score = person_ids[0], scores[0]
 
             images_count = self.employees_db.count_documents({'person_id': person_id})
 
@@ -207,7 +207,7 @@ class MainRunner:
             self.logger.error(e)
             return 0, 0
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path):
+    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
         try:
             if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
                     face_data.pose[0]) < POSE_TRESHOLD:
@@ -223,6 +223,8 @@ class MainRunner:
                 }
                 self.clients_db.insert_one(client_data)
                 logger.info("===============Regular client checked and added to db=================")
+            else:
+                logger.info("===============One of the conditions failed===============")
         except Exception as e:
             logger.error(f'Exception add image for regular client: {e}')
 
@@ -252,7 +254,7 @@ class MainRunner:
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                     'image_path': file_path.split("/")[-1],
                 }
-                self.new_clients[person_id] = client_data
+                self.new_clients.append(client_data)
                 self.logger.info(f"New client added with ID: {person_id}")
                 if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
                     self.update_client_index()
@@ -260,14 +262,23 @@ class MainRunner:
         except Exception as e:
             logger.error(f'Exception add image: {e}')
 
+    # def check_new_clients(self, face_data):
+    #     new_embedding = np.array(face_data.embedding)
+    #     for client_id, client_data in self.new_clients.items():
+    #         existing_embedding = np.array(client_data['embedding'])
+    #         similarity = compute_sim(new_embedding, existing_embedding)
+    #         if similarity > CHECK_NEW_CLIENT:
+    #             self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
+    #             return client_id
+    #     return 0
     def check_new_clients(self, face_data):
         new_embedding = np.array(face_data.embedding)
-        for client_id, client_data in self.new_clients.items():
+        for client_data in self.new_clients:
             existing_embedding = np.array(client_data['embedding'])
             similarity = compute_sim(new_embedding, existing_embedding)
-            if similarity > 0.6:
-                self.logger.info(f"Client with similar embedding already exists in new_clients: {client_id}")
-                return client_id
+            if similarity > CHECK_NEW_CLIENT:
+                self.logger.info(f"Client with similar embedding already exists in new_clients.")
+                return client_data['person_id']
         return 0
 
     def update_client_index(self):
@@ -275,10 +286,10 @@ class MainRunner:
             embeddings = []
             client_ids = []
             client_data_list = []
-            for client_id, client_data in self.new_clients.items():
+            for client_data in self.new_clients:
                 embedding = np.array(client_data["embedding"])
                 embeddings.append(embedding)
-                client_ids.append(client_id)
+                client_ids.append(client_data["person_id"])
                 client_data_list.append(client_data)
             if embeddings:
                 vectors = np.array(embeddings).astype('float32')
@@ -365,5 +376,5 @@ if __name__ == '__main__':
         try:
             test.main_run()
         except Exception as e:
-            print(e)
+            logger.error(e)
         time.sleep(5)
