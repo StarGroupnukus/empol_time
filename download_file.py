@@ -101,28 +101,29 @@ def create_indexes(db, org_id):
     faiss.write_index(index, f'index_file{org_id}.index')
     with open(f'indices{org_id}.npy', 'wb') as f:
         np.save(f, indices)
-# def create_indexes(db, org_id, role):
-#     docs = db.find()
-#     embeddings = []
-#     indices = []
-#     for doc in docs:
-#         embeddings.append(doc['embedding'])
-#         indices.append(doc['person_id'])
-#
-#     if len(embeddings) == 0:
-#         return None, None
-#     vectors = np.array(embeddings).astype('float32')
-#     faiss.normalize_L2(vectors)
-#     index = faiss.IndexFlatIP(vectors.shape[1])
-#     index.add(vectors)
-#     if role != 'client':
-#         faiss.write_index(index, f'index_file{org_id}.index')
-#         with open(f'indices{org_id}.npy', 'wb') as f:
-#             np.save(f, indices)
-#     else:
-#         if len(vectors) == 0:
-#             return faiss.IndexFlatIP(512), []
-#         return index, indices
+
+def new_create_indexes(db, org_id, role):
+    docs = db.find()
+    embeddings = []
+    indices = []
+    for doc in docs:
+        embeddings.append(doc['embedding'])
+        indices.append(doc['person_id'])
+
+    if len(embeddings) == 0:
+        return None, None
+    vectors = np.array(embeddings).astype('float32')
+    faiss.normalize_L2(vectors)
+    index = faiss.IndexFlatIP(vectors.shape[1])
+    index.add(vectors)
+    if role != 'client':
+        faiss.write_index(index, f'index_file{org_id}.index')
+        with open(f'indices{org_id}.npy', 'wb') as f:
+            np.save(f, indices)
+    else:
+        if len(vectors) == 0:
+            return faiss.IndexFlatIP(512), []
+        return index, indices
 
 
 def update_database(org_name, app):
@@ -137,7 +138,7 @@ def update_database(org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    # create_indexes(db, org_name, 'employee')
+    # Обновить new_create_indexes
     create_indexes(db, org_name)
 
 
