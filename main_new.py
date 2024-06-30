@@ -52,13 +52,6 @@ class MainRunner:
         update_employees_database(self.employees_db, self.org_name, app=app)
         return app
 
-    def initialize_client_index(self):
-        client_data = list(self.clients_db.find())
-        if len(client_data) == 0:
-            self.init_clients_db()
-            return new_create_indexes(self.clients_db, self.org_name, 'client')
-        return new_create_indexes(self.clients_db, self.org_name, 'client')
-
     def initialize_counter(self, counter_id):
         if self.counter_db.find_one({'_id': counter_id}) is None:
             self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
@@ -72,6 +65,14 @@ class MainRunner:
             "embedding": face_data.embedding.tolist(),
         }
         self.clients_db.insert_one(client_data)
+
+    def initialize_client_index(self):
+        client_data = list(self.clients_db.find())
+        if len(client_data) == 0:
+            self.init_clients_db()
+        clients_index = faiss.read_index(f'index_file{self.org_name}_client.index')
+        clients_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
+        return clients_index, clients_indices
 
     def main_run(self):
         threads = []
@@ -220,7 +221,8 @@ class MainRunner:
     def add_new_client_to_db(self, face_data, file_path, date):
         self.logger.info("Attempting to add a new client.")
         try:
-            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD:
+            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
+                    face_data.pose[0]) < POSE_TRESHOLD:
                 new_client_id = self.check_new_clients(face_data)
                 if new_client_id == 0:
                     counter = self.counter_db.find_one_and_update(
@@ -277,8 +279,11 @@ class MainRunner:
                     self.client_index.add(vectors)
                     self.client_indices.extend(client_ids)
                     self.clients_db.insert_many(client_data_list)
+                    # Сохранение обновленного массива индексов обратно в npy файл
+                    np.save(f'indices{self.org_name}.npy', np.array(self.client_indices, dtype=object),
+                            allow_pickle=True)
                     self.logger.info(
-                        f"Client index updated and added to clients_db , Index length: {self.client_index.ntotal}")
+                        f"Client index updated and added to clients_db, Index length: {self.client_index.ntotal}")
                 self.new_clients.clear()
         except Exception as e:
             self.logger.error(f'Exception updating index: {e}')
