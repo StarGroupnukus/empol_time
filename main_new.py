@@ -2,7 +2,6 @@ import os
 import threading
 import time
 from datetime import datetime
-
 import cv2
 import faiss
 import numpy as np
@@ -10,7 +9,6 @@ import requests
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
-
 from download_file import new_create_indexes, update_employees_database
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
 
@@ -46,6 +44,7 @@ class MainRunner:
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
         self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
         self.new_clients = []
+        self.lock = threading.Lock()  # Добавление блокировки
 
     def setup_app(self):
         app = FaceAnalysis()
@@ -58,10 +57,6 @@ class MainRunner:
         if len(client_data) == 0:
             self.init_clients_db()
             return new_create_indexes(self.clients_db, self.org_name, 'client')
-            # new_create_indexes(self.clients_db, self.org_name, 'client')
-            clients_index = faiss.read_index(f'index_file{org_name}_client.index')
-            clients_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
-            return clients_index, clients_indices
         return new_create_indexes(self.clients_db, self.org_name, 'client')
 
     def initialize_counter(self, counter_id):
@@ -81,12 +76,10 @@ class MainRunner:
     def main_run(self):
         threads = []
         for camera_directory in self.cameras_path_directories:
-            # if not camera_directory.startswith('test'):
             if not camera_directory.startswith('cam'):
                 continue
             camera_directory = f"{self.images_folder}/{camera_directory}"
             camera_id = camera_directory.split(' ')[1]
-            # camera_id = '2'
             time.sleep(1)
             self.logger.warning(f'Camera start --> {camera_directory}')
             thread = threading.Thread(target=self.classify_images, args=(camera_directory, camera_id))
@@ -137,7 +130,6 @@ class MainRunner:
                         send_report(camera_id, person_id, back_file_name, date, score, logger)
                     else:
                         os.remove(orig_image_path)
-                    # continue
                 else:
                     score, person_id = self.is_regular_client(face_data, file_path)
                     if score == 0 and person_id == 0:
@@ -151,9 +143,7 @@ class MainRunner:
                                       f'{folder_path}/regular_clients/{person_id}_{score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg')
                             logger.info(
                                 f"================is_regular_client score:{score} id:{person_id}================")
-                            # добавление в базу и проверка
                             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
-                            # self.send_client_data(camera_id, person_id, date, file_path, face_data)
                     else:
                         person_id = self.add_new_client_to_db(face_data, file_path, date)
                         if person_id:
@@ -164,7 +154,6 @@ class MainRunner:
                         else:
                             os.makedirs(f"{folder_path}/no_good", exist_ok=True)
                             os.rename(f'{folder_path}/{file}', f'{folder_path}/no_good/{file}')
-                            # self.send_client_data(camera_id, person_id, date, file_path, face_data)
 
     def is_regular_client(self, face_data, file_path):
         try:
@@ -196,8 +185,7 @@ class MainRunner:
             images_count = self.employees_db.count_documents({'person_id': person_id})
 
             if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and abs(
-                    face_data.pose[1]) < POSE_TRESHOLD and
-                    abs(face_data.pose[0]) < POSE_TRESHOLD):
+                    face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD):
                 document = self.employees_db.find_one({"person_id": person_id}, sort=[("update_date", -1)])
                 doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
                 delta_time = (datetime.now() - doc_upd_time).total_seconds()
@@ -232,10 +220,8 @@ class MainRunner:
     def add_new_client_to_db(self, face_data, file_path, date):
         self.logger.info("Attempting to add a new client.")
         try:
-            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(
-                    face_data.pose[0]) < POSE_TRESHOLD:
+            if face_data.det_score >= DET_SCORE_TRESH and abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD:
                 new_client_id = self.check_new_clients(face_data)
-                # person_id = None
                 if new_client_id == 0:
                     counter = self.counter_db.find_one_and_update(
                         {'_id': 'client_id'},
@@ -252,13 +238,14 @@ class MainRunner:
                     "embedding": face_data.embedding.tolist(),
                     "gender": str(face_data.gender),
                     "age": str(face_data.age),
-                    "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                    "date": date.strftime("%Y-%m-%d %H:%М:%S"),
                     'image_path': file_path.split("/")[-1],
                 }
-                self.new_clients.append(client_data)
+                with self.lock:  # Блокировка при добавлении новых клиентов
+                    self.new_clients.append(client_data)
                 self.logger.info(f"New client added with ID: {person_id}")
                 if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
-                    self.update_client_index()
+                    threading.Thread(target=self.update_client_index).start()  # Асинхронное обновление
                 return person_id
         except Exception as e:
             logger.error(f'Exception add image: {e}')
@@ -278,20 +265,21 @@ class MainRunner:
             embeddings = []
             client_ids = []
             client_data_list = []
-            for client_data in self.new_clients:
-                embedding = np.array(client_data["embedding"])
-                embeddings.append(embedding)
-                client_ids.append(client_data["person_id"])
-                client_data_list.append(client_data)
-            if embeddings:
-                vectors = np.array(embeddings).astype('float32')
-                faiss.normalize_L2(vectors)
-                self.client_index.add(vectors)
-                self.client_indices.extend(client_ids)
-                self.clients_db.insert_many(client_data_list)
-                self.logger.info(
-                    f"Client index updated and added to clients_db , Index length: {self.client_index.ntotal}")
-            self.new_clients.clear()
+            with self.lock:  # Блокировка при обновлении индекса
+                for client_data in self.new_clients:
+                    embedding = np.array(client_data["embedding"])
+                    embeddings.append(embedding)
+                    client_ids.append(client_data["person_id"])
+                    client_data_list.append(client_data)
+                if embeddings:
+                    vectors = np.array(embeddings).astype('float32')
+                    faiss.normalize_L2(vectors)
+                    self.client_index.add(vectors)
+                    self.client_indices.extend(client_ids)
+                    self.clients_db.insert_many(client_data_list)
+                    self.logger.info(
+                        f"Client index updated and added to clients_db , Index length: {self.client_index.ntotal}")
+                self.new_clients.clear()
         except Exception as e:
             self.logger.error(f'Exception updating index: {e}')
 
@@ -312,7 +300,6 @@ class MainRunner:
                 "gender": gender,
                 "age": age
             }
-
             files = {'images': open(file_path, 'rb')}
             response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
             self.logger.info(f"Sent data: {response.status_code}")
