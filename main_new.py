@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
-from download_file import update_database, new_create_indexes
+from download_file import new_create_indexes, update_employees_database
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
 
 load_dotenv()
@@ -50,7 +50,7 @@ class MainRunner:
     def setup_app(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
-        update_database(self.org_name, app=app)
+        update_employees_database(self.employees_db, self.org_name, app=app)
         return app
 
     def initialize_client_index(self):
@@ -58,6 +58,10 @@ class MainRunner:
         if len(client_data) == 0:
             self.init_clients_db()
             return new_create_indexes(self.clients_db, self.org_name, 'client')
+            # new_create_indexes(self.clients_db, self.org_name, 'client')
+            clients_index = faiss.read_index(f'index_file{org_name}_client.index')
+            clients_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
+            return clients_index, clients_indices
         return new_create_indexes(self.clients_db, self.org_name, 'client')
 
     def initialize_counter(self, counter_id):

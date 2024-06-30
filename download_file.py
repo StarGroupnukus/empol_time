@@ -110,7 +110,7 @@ def new_create_indexes(db, org_id, role):
         indices = []
         for doc in docs:
             embeddings.append(doc['embedding'])
-            indices.append(doc['person_id'])
+            indices.append(int(doc['person_id']))
 
         vectors = np.array(embeddings).astype('float32')
         faiss.normalize_L2(vectors)
@@ -121,14 +121,16 @@ def new_create_indexes(db, org_id, role):
             with open(f'indices{org_id}.npy', 'wb') as f:
                 np.save(f, indices)
         else:
-            return index, indices
+            faiss.write_index(index, f'index_file{org_id}_client.index')
+            with open(f'indices{org_id}_client.npy', 'wb') as f:
+                np.save(f, indices)
+            # return index, indices
     except Exception as e:
         logger.error(f"Exception in new_create_indexes: {e}")
 
 
-
-def new_update_database(db, org_name, app):
-    file_name = f'{org_name}.json'
+def update_employees_database(db, org_name, app):
+    file_name = f'{org_name}_employees.json'
     download_file(file_name)
 
     data = get_data(file_name)
@@ -138,8 +140,7 @@ def new_update_database(db, org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    new_create_indexes(collection, org_name,'employee')
-
+    new_create_indexes(collection, org_name, 'employee')
 
 
 def update_database(org_name, app):
