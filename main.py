@@ -25,6 +25,7 @@ IMAGE_COUNT = 10
 TRESHOLD_ADD_DB = 15
 DIMENSIONS = 512
 
+
 class MainRunner:
     def __init__(self, images_folder):
         self.images_folder = images_folder
@@ -68,6 +69,7 @@ class MainRunner:
             orig_image_path = file_path.replace('SNAP', 'BACKGROUND')
             if os.path.getsize(file_path) == 0:
                 os.remove(file_path)
+                os.remove(orig_image_path)
                 continue
             if os.path.exists(orig_image_path):
                 image = cv2.imread(file_path)

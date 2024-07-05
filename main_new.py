@@ -9,10 +9,11 @@ import requests
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
-from download_file import new_create_indexes, update_employees_database
+from download_file import new_create_indexes, update_employees_database, update_database
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
 
 load_dotenv()
+
 CHECK_NEW_CLIENT = 0.5
 TRESHOLD_IS_DB = 14
 POSE_TRESHOLD = 30
