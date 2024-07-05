@@ -72,7 +72,7 @@ class MainRunner:
                 os.remove(orig_image_path)
                 continue
             if os.path.exists(orig_image_path):
-                copy_files(file_path, orig_image_path, '/home/stargroup/ecosun/test')
+                copy_files(file_path, orig_image_path, f'{os.getenv("IMAGES_FOLDER")}/test')
                 image = cv2.imread(file_path)
                 date = extract_date_from_filename(file)
                 faces = self.app.get(image)
