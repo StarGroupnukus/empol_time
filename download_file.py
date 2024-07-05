@@ -11,13 +11,14 @@ from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
-from funcs import get_faces_data
+from funcs import get_faces_data, setup_logger
 
 load_dotenv()
 
 mongo_url = os.getenv("MONGODB_LOCAL")
 client = MongoClient(mongo_url)
 
+d_log = setup_logger('download', 'logs/download.log')
 
 def download_file(filename):
     url = os.getenv('SEND_REPORT_API')
@@ -103,7 +104,7 @@ def create_indexes(db, org_id):
         np.save(f, indices)
 
 
-def new_create_indexes(db, org_id, role, logger):
+def new_create_indexes(db, org_id, role, logger=d_log):
     try:
         docs = db.find()
         embeddings = []
@@ -140,7 +141,7 @@ def update_employees_database(db, org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    new_create_indexes(collection, org_name, 'employee')
+    new_create_indexes(collection, org_name, 'employee', )
 
 
 def update_database(org_name, app):
