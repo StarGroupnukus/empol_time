@@ -44,6 +44,15 @@ def extract_date_from_filename(filename):
         return None
 
 
+def copy_files(file1, file2, dirname):
+    """Копирует файлы из одного каталога в другой."""
+    try:
+        os.makedirs(dirname, exist_ok=True)
+        os.rename(file1, os.path.join(dirname, os.path.basename(file1)))
+        os.rename(file2, os.path.join(dirname, os.path.basename(file2)))
+    except Exception as e:
+        logger.error(f"Произошла ошибка при копировании файлов: {e}")
+
 def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     file_name = os.path.basename(file_path)
     folder = os.path.join(os.getenv("USERS_FOLDER_PATH"), str(person_id), "attendances")

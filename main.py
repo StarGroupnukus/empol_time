@@ -12,7 +12,7 @@ from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
 from download_file import update_database
-from funcs import extract_date_from_filename, send_report, get_faces_data, setup_logger, compute_sim
+from funcs import extract_date_from_filename, send_report, get_faces_data, setup_logger, compute_sim, copy_files
 
 load_dotenv()
 
@@ -72,6 +72,7 @@ class MainRunner:
                 os.remove(orig_image_path)
                 continue
             if os.path.exists(orig_image_path):
+                copy_files(file_path, orig_image_path, 'test')
                 image = cv2.imread(file_path)
                 date = extract_date_from_filename(file)
                 faces = self.app.get(image)
