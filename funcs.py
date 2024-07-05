@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 from datetime import datetime
 
 import numpy as np
@@ -48,8 +49,8 @@ def copy_files(file1, file2, dirname):
     """Копирует файлы из одного каталога в другой."""
     try:
         os.makedirs(dirname, exist_ok=True)
-        os.rename(file1, os.path.join(dirname, os.path.basename(file1)))
-        os.rename(file2, os.path.join(dirname, os.path.basename(file2)))
+        shutil.copy(file1, os.path.join(dirname, os.path.basename(file1)))
+        shutil.copy(file2, os.path.join(dirname, os.path.basename(file2)))
     except Exception as e:
         logger.error(f"Произошла ошибка при копировании файлов: {e}")
 
