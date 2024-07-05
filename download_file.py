@@ -103,7 +103,7 @@ def create_indexes(db, org_id):
         np.save(f, indices)
 
 
-def new_create_indexes(db, org_id, role):
+def new_create_indexes(db, org_id, role, logger):
     try:
         docs = db.find()
         embeddings = []
@@ -124,7 +124,7 @@ def new_create_indexes(db, org_id, role):
             faiss.write_index(index, f'index_file{org_id}_client.index')
             with open(f'indices{org_id}_client.npy', 'wb') as f:
                 np.save(f, indices)
-            # return index, indices
+        return index, indices
     except Exception as e:
         logger.error(f"Exception in new_create_indexes: {e}")
 

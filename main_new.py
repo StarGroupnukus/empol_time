@@ -39,7 +39,7 @@ class MainRunner:
         self.logger = setup_logger('MainRunner', 'logs/main.log')
         self.employee_data = list(self.clients_db.find())
         self.app = self.setup_app()
-        self.client_index, self.client_indices = self.initialize_client_index()
+        self.client_index, self.client_indices = new_create_indexes(self.clients_db, self.org_name, 'client', logger)
         self.initialize_counter('client_id')
         self.check_add_to_db = False
         self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
@@ -78,7 +78,7 @@ class MainRunner:
     def main_run(self):
         threads = []
         for camera_directory in self.cameras_path_directories:
-            if not camera_directory.startswith('cam'):
+            if not camera_directory.startswith('test'):
                 continue
             camera_directory = f"{self.images_folder}/{camera_directory}"
             camera_id = camera_directory.split(' ')[1]
