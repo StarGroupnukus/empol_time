@@ -62,22 +62,6 @@ class MainRunner:
             self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
             self.logger.info(f"Initialized counter for {counter_id}")
 
-    def init_clients_db(self):
-        image = cv2.imread(INIT_IMAGE_PATH)
-        face_data = self.app.get(image)[0]
-        client_data = {
-            "person_id": 0,
-            "embedding": face_data.embedding.tolist(),
-        }
-        self.clients_db.insert_one(client_data)
-
-    def initialize_client_index(self):
-        client_data = list(self.clients_db.find())
-        if len(client_data) == 0:
-            self.init_clients_db()
-        clients_index = faiss.read_index(f'index_file{self.org_name}_client.index')
-        clients_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
-        return clients_index, clients_indices
 
     def main_run(self):
         threads = []
@@ -138,7 +122,7 @@ class MainRunner:
         if score > TRESHOLD_IS_DB:
             self.handle_recognized(file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id)
         else:
-            self.handle_regular_client(file_path, face_data, folder_path, person_id, date)
+            self.handle_regular_client(file_path, face_data, folder_path, date)
 
     def move_file(self, file_path, orig_image_path, destination_folder):
         os.makedirs(destination_folder, exist_ok=True)
@@ -156,7 +140,7 @@ class MainRunner:
         else:
             os.remove(orig_image_path)
 
-    def handle_regular_client(self, file_path, face_data, folder_path, person_id, date):
+    def handle_regular_client(self, file_path, face_data, folder_path, date):
         score, person_id = self.is_regular_client(face_data, file_path)
         if score == 0 and person_id == 0:
             self.move_file(file_path, None, f"{folder_path}/error")
