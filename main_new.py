@@ -98,6 +98,7 @@ class MainRunner:
                 faces = self.app.get(image)
                 if len(faces) == 0:
                     self.logger.error("No faces found in the image")
+                    self.clean_files(file_path, orig_image_path)
                     continue
             except Exception as e:
                 self.logger.error(f'ERROR for app get: {e}')
