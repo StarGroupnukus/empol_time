@@ -183,7 +183,7 @@ class MainRunner:
             score = scores[0][0]
             return score, person_id
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(f'is regu{e}')
             return 0, 0
 
     def is_employee(self, face_data, file_path):
@@ -212,7 +212,7 @@ class MainRunner:
                         self.add_employer_to_db(file_path, person_id)
             return score, person_id
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(f'is empl {e}')
             return 0, 0
 
     def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
@@ -373,5 +373,5 @@ if __name__ == '__main__':
         try:
             test.main_run()
         except Exception as e:
-            logger.error(e)
+            logger.error(f'Exception main_run {e}')
         time.sleep(5)
