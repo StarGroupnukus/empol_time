@@ -120,13 +120,11 @@ class MainRunner:
             date = extract_date_from_filename(file)
             try:
                 faces = self.app.get(image)
+                if len(faces) == 0:
+                    self.logger.error("No faces found in the image")
+                    continue
             except Exception as e:
                 self.logger.error(f'ERROR for app get: {e}')
-                continue
-            if not faces:
-                os.makedirs(f"{folder_path}/not_face", exist_ok=True)
-                os.rename(file_path, f'{folder_path}/not_face/{file}')
-                os.remove(orig_image_path)
                 continue
             face_data = get_faces_data(faces)
             score, person_id = self.is_employee(face_data, file_path)
@@ -177,6 +175,9 @@ class MainRunner:
                 return 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             scores, ids = self.client_index.search(query, 1)
+            if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
+                self.logger.error("FAISS search returned empty results")
+                return 0, 0
             indices = self.client_indices
             person_id = int(indices[ids[0][0]])
             score = scores[0][0]
@@ -192,6 +193,9 @@ class MainRunner:
                 return 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             scores, ids = self.employee_index.search(query, 1)
+            if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
+                self.logger.error("FAISS search returned empty results")
+                return 0, 0
             indices = self.employee_indices
             person_id = int(indices[ids[0][0]])
             score = scores[0][0]
@@ -199,12 +203,13 @@ class MainRunner:
             images_count = self.employees_db.count_documents({'person_id': person_id})
 
             if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and
-                abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD):
+                    abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD):
                 document = self.employees_db.find_one({"person_id": person_id}, sort=[("update_date", -1)])
-                doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
-                delta_time = (datetime.now() - doc_upd_time).total_seconds()
-                if delta_time > 4000:
-                    self.add_employer_to_db(file_path, person_id)
+                if document:
+                    doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
+                    delta_time = (datetime.now() - doc_upd_time).total_seconds()
+                    if delta_time > 4000:
+                        self.add_employer_to_db(file_path, person_id)
             return score, person_id
         except Exception as e:
             self.logger.error(e)
