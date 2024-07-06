@@ -163,7 +163,11 @@ class MainRunner:
                 return False, 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             index = self.client_index
-            scores, ids = [i[0].tolist() for i in index.search(query, 1)]
+            try:
+                scores, ids = [i[0].tolist() for i in index.search(query, 1)]
+            except IndexError as e:
+                logger.error(f"Ошибка при доступе к списку результатов: {e}")
+                return 0, 0
             indices = self.client_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
@@ -179,7 +183,11 @@ class MainRunner:
                 return False, 0, 0
             query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
             index = self.employee_index
-            scores, ids = [i[0].tolist() for i in index.search(query, 1)]
+            try:
+                scores, ids = [i[0].tolist() for i in index.search(query, 1)]
+            except IndexError as e:
+                logger.error(f"Ошибка при доступе к списку результатов: {e}")
+                return 0, 0
             indices = self.employee_indices
             person_ids = [int(indices[id_empl]) for id_empl in ids]
             person_id, score = person_ids[0], scores[0]
