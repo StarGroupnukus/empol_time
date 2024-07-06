@@ -108,7 +108,11 @@ class MainRunner:
                 continue
             image = cv2.imread(file_path)
             date = extract_date_from_filename(file)
-            faces = self.app.get(image)
+            try:
+                faces = self.app.get(image)
+                print(faces[0].keys)
+            except Exception as e:
+                print('ERROR for app get', e)
             if not faces:
                 os.makedirs(f"{folder_path}/not_face", exist_ok=True)
                 os.rename(file_path, f'{folder_path}/not_face/{file}')
