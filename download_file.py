@@ -88,7 +88,7 @@ def get_data(file_path):
         print(f"An error occurred: {e}")
 
 
-def create_indexes(db, org_id):
+def create_indexes(db):
     docs = db.find({})
     embeddings = []
     indices = []
@@ -154,7 +154,7 @@ def update_database(org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    return create_indexes(db, org_name)
+    return create_indexes(db)
 
 
 if __name__ == '__main__':
