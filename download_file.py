@@ -110,7 +110,7 @@ def new_create_indexes(db, org_id, role, logger=d_log):
         embeddings = []
         indices = []
         for doc in docs:
-            embeddings.append(doc['embedding'])
+            embeddings.append(np.array(doc['embedding'], dtype=np.float32))
             indices.append(int(doc['person_id']))
 
         vectors = np.array(embeddings).astype('float32')
