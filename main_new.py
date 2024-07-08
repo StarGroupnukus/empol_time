@@ -12,56 +12,112 @@ from pymongo import MongoClient
 from download_file import new_create_indexes, update_employees_database, update_database
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
 
-# Load environment variables
 load_dotenv()
 
-# Constants
-CHECK_NEW_CLIENT = 0.5
-TRESHOLD_IS_DB = 14
-POSE_TRESHOLD = 30
-DET_SCORE_TRESH = 0.75
-IMAGE_COUNT = 10
-TRESHOLD_ADD_DB = 19
-DIMENSIONS = 512
-INDEX_UPDATE_TRESHOLD = 5
-INIT_IMAGE_PATH = './pavel.png'
+class Config:
+    CHECK_NEW_CLIENT = 0.5
+    THRESHOLD_IS_DB = 14
+    POSE_THRESHOLD = 30
+    DET_SCORE_THRESH = 0.75
+    IMAGE_COUNT = 10
+    THRESHOLD_ADD_DB = 19
+    DIMENSIONS = 512
+    INDEX_UPDATE_THRESHOLD = 5
+    INIT_IMAGE_PATH = './pavel.png'
 
-# Setup logger
-logger = setup_logger('MainRunner', 'logs/main.log')
+class Database:
+    def __init__(self):
+        self.client = MongoClient(os.getenv('MONGODB_LOCAL'))
+        self.db = self.client.biz_count
+        self.employees = self.db.employees
+        self.clients = self.db.clients
+        self.counters = self.db.counters
 
+    def initialize_counter(self, counter_id):
+        if self.counters.find_one({'_id': counter_id}) is None:
+            self.counters.insert_one({'_id': counter_id, 'seq': 0})
+
+    def increment_counter(self, counter_id):
+        return self.counters.find_one_and_update(
+            {'_id': counter_id},
+            {'$inc': {'seq': 1}},
+            upsert=True,
+            return_document=True
+        )['seq']
+
+class FaceProcessor:
+    def __init__(self):
+        self.app = FaceAnalysis()
+        self.app.prepare(ctx_id=0)
+
+    def get_faces(self, image):
+        return self.app.get(image)
+
+    def process_image(self, image_path):
+        image = cv2.imread(image_path)
+        return self.get_faces(image)
+
+class IndexManager:
+    def __init__(self, org_name):
+        self.org_name = org_name
+        self.client_index, self.client_indices = new_create_indexes(Database().clients, org_name, 'client', logger)
+        self.employee_index = faiss.read_index(f'index_file{org_name}.index')
+        self.employee_indices = np.load(f'indices{org_name}.npy', allow_pickle=True)
+
+    def update_client_index(self, new_clients):
+        embeddings = [np.array(client["embedding"]) for client in new_clients]
+        client_ids = [client["person_id"] for client in new_clients]
+
+        vectors = np.array(embeddings).astype('float32')
+        faiss.normalize_L2(vectors)
+        self.client_index.add(vectors)
+        self.client_indices.extend(client_ids)
+
+        np.save(f'indices{self.org_name}.npy', np.array(self.client_indices, dtype=object), allow_pickle=True)
+
+    def search_employee(self, embedding):
+        query = np.array(embedding).astype(np.float32).reshape(1, -1)
+        scores, ids = self.employee_index.search(query, 1)
+        if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
+            return 0, 0
+        person_id = int(self.employee_indices[ids[0][0]])
+        return scores[0][0], person_id
+
+    def search_client(self, embedding):
+        query = np.array(embedding).astype(np.float32).reshape(1, -1)
+        scores, ids = self.client_index.search(query, 1)
+        if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
+            return 0, 0
+        person_id = int(self.client_indices[ids[0][0]])
+        return scores[0][0], person_id
+
+class ImageHandler:
+    @staticmethod
+    def move_file(file_path, orig_image_path, destination_folder):
+        os.makedirs(destination_folder, exist_ok=True)
+        os.rename(file_path, f'{destination_folder}/{os.path.basename(file_path)}')
+        if orig_image_path:
+            os.remove(orig_image_path)
+
+    @staticmethod
+    def clean_files(file_path, orig_image_path):
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        if os.path.exists(orig_image_path):
+            os.remove(orig_image_path)
 
 class MainRunner:
     def __init__(self, images_folder):
         self.images_folder = images_folder
         self.org_name = os.path.basename(images_folder)
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
-        self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
-        self.mongodb = self.db.biz_count
-        self.employees_db = self.mongodb.employees
-        self.clients_db = self.mongodb.clients
-        self.counter_db = self.mongodb.counters
         self.logger = setup_logger('MainRunner', 'logs/main.log')
-        self.employee_data = list(self.clients_db.find())
-        self.app = self.setup_app()
-        self.client_index, self.client_indices = new_create_indexes(self.clients_db, self.org_name, 'client', logger)
-        self.initialize_counter('client_id')
-        self.check_add_to_db = False
-        self.employee_index = faiss.read_index(f'index_file{self.org_name}.index')
-        self.employee_indices = np.load(f'indices{self.org_name}.npy', allow_pickle=True)
+        self.db = Database()
+        self.face_processor = FaceProcessor()
+        self.index_manager = IndexManager(self.org_name)
         self.new_clients = []
         self.lock = threading.Lock()
-
-    def setup_app(self):
-        app = FaceAnalysis()
-        app.prepare(ctx_id=0)
-        update_employees_database(self.employees_db, self.org_name, app=app)
-        return app
-
-    def initialize_counter(self, counter_id):
-        if self.counter_db.find_one({'_id': counter_id}) is None:
-            self.counter_db.insert_one({'_id': counter_id, 'seq': 0})
-            self.logger.info(f"Initialized counter for {counter_id}")
-
+        self.check_add_to_db = False
 
     def main_run(self):
         threads = []
@@ -78,9 +134,10 @@ class MainRunner:
         for thread in threads:
             thread.join()
         if self.new_clients:
-            self.update_client_index()
+            self.index_manager.update_client_index(self.new_clients)
+            self.new_clients.clear()
         if self.check_add_to_db:
-            update_database(self.org_name, app=self.app)
+            update_database(self.org_name, app=self.face_processor.app)
             self.check_add_to_db = False
 
     def classify_images(self, folder_path, camera_id):
@@ -89,16 +146,15 @@ class MainRunner:
             file_path = os.path.join(folder_path, file)
             orig_image_path = file_path.replace('SNAP', 'BACKGROUND')
             if not os.path.exists(orig_image_path) or os.path.getsize(file_path) == 0:
-                self.clean_files(file_path, orig_image_path)
+                ImageHandler.clean_files(file_path, orig_image_path)
                 continue
 
-            image = cv2.imread(file_path)
             date = extract_date_from_filename(file)
             try:
-                faces = self.app.get(image)
+                faces = self.face_processor.process_image(file_path)
                 if len(faces) == 0:
                     self.logger.error("No faces found in the image")
-                    self.clean_files(file_path, orig_image_path)
+                    ImageHandler.clean_files(file_path, orig_image_path)
                     continue
             except Exception as e:
                 self.logger.error(f'ERROR for app get: {e}')
@@ -107,29 +163,17 @@ class MainRunner:
             face_data = get_faces_data(faces)
             self.process_faces(face_data, file_path, orig_image_path, folder_path, camera_id, date)
 
-    def clean_files(self, file_path, orig_image_path):
-        if os.path.exists(file_path):
-            os.remove(file_path)
-        if os.path.exists(orig_image_path):
-            os.remove(orig_image_path)
-
     def process_faces(self, face_data, file_path, orig_image_path, folder_path, camera_id, date):
-        score, person_id = self.is_employee(face_data, file_path)
+        score, person_id = self.index_manager.search_employee(face_data.embedding)
         self.logger.info(f"Employee Score {score}")
         if score == 0:
-            self.move_file(file_path, orig_image_path, f"{folder_path}/error")
+            ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/error")
             return
 
-        if score > TRESHOLD_IS_DB:
+        if score > Config.THRESHOLD_IS_DB:
             self.handle_recognized(file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id)
         else:
             self.handle_regular_client(file_path, face_data, folder_path, date)
-
-    def move_file(self, file_path, orig_image_path, destination_folder):
-        os.makedirs(destination_folder, exist_ok=True)
-        os.rename(file_path, f'{destination_folder}/{os.path.basename(file_path)}')
-        if orig_image_path:
-            os.remove(orig_image_path)
 
     def handle_recognized(self, file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id):
         os.makedirs(f"{folder_path}/recognized", exist_ok=True)
@@ -142,70 +186,23 @@ class MainRunner:
             os.remove(orig_image_path)
 
     def handle_regular_client(self, file_path, face_data, folder_path, date):
-        score, person_id = self.is_regular_client(face_data, file_path)
+        score, person_id = self.index_manager.search_client(face_data.embedding)
         if score == 0 and person_id == 0:
-            self.move_file(file_path, None, f"{folder_path}/error")
-        elif score > TRESHOLD_IS_DB:
+            ImageHandler.move_file(file_path, None, f"{folder_path}/error")
+        elif score > Config.THRESHOLD_IS_DB:
             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
-            self.move_file(file_path, None, f"{folder_path}/regular_clients")
+            ImageHandler.move_file(file_path, None, f"{folder_path}/regular_clients")
         else:
             person_id = self.add_new_client_to_db(face_data, file_path, date)
             if person_id:
-                self.move_file(file_path, None, f"{folder_path}/new_clients")
+                ImageHandler.move_file(file_path, None, f"{folder_path}/new_clients")
             else:
-                self.move_file(file_path, None, f"{folder_path}/no_good")
-
-    def is_regular_client(self, face_data, file_path):
-        try:
-            if np.all(face_data.embedding) == 0:
-                return 0, 0
-            query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
-            scores, ids = self.client_index.search(query, 1)
-            if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
-                self.logger.error("FAISS search returned empty results")
-                return 0, 0
-            indices = self.client_indices
-            person_id = int(indices[ids[0][0]])
-            score = scores[0][0]
-            return score, person_id
-        except Exception as e:
-            self.logger.error(f'is regular client: {e}')
-            return 0, 0
-
-    def is_employee(self, face_data, file_path):
-        try:
-            if np.all(face_data.embedding) == 0:
-                return 0, 0
-            query = np.array(face_data.embedding).astype(np.float32).reshape(1, -1)
-            scores, ids = self.employee_index.search(query, 1)
-            if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
-                self.logger.error("FAISS search returned empty results")
-                return 0, 0
-            indices = self.employee_indices
-            person_id = int(indices[ids[0][0]])
-            score = scores[0][0]
-
-            images_count = self.employees_db.count_documents({'person_id': person_id})
-            if (images_count < 40 and score > TRESHOLD_ADD_DB and face_data.det_score >= DET_SCORE_TRESH and
-                    abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD):
-                self.update_employee_db(file_path, person_id)
-            return score, person_id
-        except Exception as e:
-            self.logger.error(f'is employee: {e}')
-            return 0, 0
-
-    def update_employee_db(self, file_path, person_id):
-        document = self.employees_db.find_one({"person_id": person_id}, sort=[("update_date", -1)])
-        if document:
-            doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
-            delta_time = (datetime.now() - doc_upd_time).total_seconds()
-            if delta_time > 4000:
-                self.add_employer_to_db(file_path, person_id)
+                ImageHandler.move_file(file_path, None, f"{folder_path}/no_good")
 
     def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
         try:
-            if (face_data.det_score >= DET_SCORE_TRESH and
-                abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD):
+            if (face_data.det_score >= Config.DET_SCORE_THRESH and
+                abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
                 client_data = {
                     "type": "regular_client",
                     'score': float(score),
@@ -216,7 +213,7 @@ class MainRunner:
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
                     'image_path': os.path.basename(file_path),
                 }
-                self.clients_db.insert_one(client_data)
+                self.db.clients.insert_one(client_data)
                 self.logger.info("Regular client checked and added to db.")
             else:
                 self.logger.info("One of the conditions failed for regular client.")
@@ -226,17 +223,11 @@ class MainRunner:
     def add_new_client_to_db(self, face_data, file_path, date):
         self.logger.info("Attempting to add a new client.")
         try:
-            if (face_data.det_score >= DET_SCORE_TRESH and
-                abs(face_data.pose[1]) < POSE_TRESHOLD and abs(face_data.pose[0]) < POSE_TRESHOLD):
+            if (face_data.det_score >= Config.DET_SCORE_THRESH and
+                abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
                 new_client_id = self.check_new_clients(face_data)
                 if new_client_id == 0:
-                    counter = self.counter_db.find_one_and_update(
-                        {'_id': 'client_id'},
-                        {'$inc': {'seq': 1}},
-                        upsert=True,
-                        return_document=True
-                    )
-                    person_id = counter['seq']
+                    person_id = self.db.increment_counter('client_id')
                 else:
                     person_id = new_client_id
                 client_data = {
@@ -251,8 +242,9 @@ class MainRunner:
                 with self.lock:
                     self.new_clients.append(client_data)
                 self.logger.info(f"New client added with ID: {person_id}")
-                if len(self.new_clients) >= INDEX_UPDATE_TRESHOLD:
-                    threading.Thread(target=self.update_client_index).start()
+                if len(self.new_clients) >= Config.INDEX_UPDATE_THRESHOLD:
+                    threading.Thread(target=self.index_manager.update_client_index, args=(self.new_clients,)).start()
+                    self.new_clients.clear()
                 return person_id
         except Exception as e:
             self.logger.error(f'Exception adding new client: {e}')
@@ -262,62 +254,14 @@ class MainRunner:
         for client_data in self.new_clients:
             existing_embedding = np.array(client_data['embedding'])
             similarity = compute_sim(new_embedding, existing_embedding)
-            if similarity > CHECK_NEW_CLIENT:
+            if similarity > Config.CHECK_NEW_CLIENT:
                 self.logger.info("Client with similar embedding already exists in new_clients.")
                 return client_data['person_id']
         return 0
 
-    def update_client_index(self):
-        try:
-            embeddings = []
-            client_ids = []
-            client_data_list = []
-            with self.lock:
-                for client_data in self.new_clients:
-                    embedding = np.array(client_data["embedding"])
-                    embeddings.append(embedding)
-                    client_ids.append(client_data["person_id"])
-                    client_data_list.append(client_data)
-                if embeddings:
-                    vectors = np.array(embeddings).astype('float32')
-                    faiss.normalize_L2(vectors)
-                    self.client_index.add(vectors)
-                    self.client_indices.extend(client_ids)
-                    self.clients_db.insert_many(client_data_list)
-                    np.save(f'indices{self.org_name}.npy', np.array(self.client_indices, dtype=object), allow_pickle=True)
-                    self.logger.info(f"Client index updated. Index length: {self.client_index.ntotal}")
-                self.new_clients.clear()
-        except Exception as e:
-            self.logger.error(f'Exception updating client index: {e}')
-
-    def send_client_data(self, camera_id, person_id, date, file_path, face_data):
-        try:
-            url = os.getenv("SEND_CLIENT_URL")
-            token = os.getenv("TOKEN_CLIENT_API")
-            headers = {
-                "Accept": "application/json",
-                "Authorization": f"Bearer {token}"
-            }
-            data = {
-                "camera_id": camera_id,
-                "person_id": person_id,
-                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                "gender": face_data.gender,
-                "age": face_data.age
-            }
-            files = {'images': open(file_path, 'rb')}
-            response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
-            self.logger.info(f"Sent data: {response.status_code}")
-            if response.status_code != 201:
-                self.logger.error(f"Error: {response.status_code} for client {person_id}")
-            else:
-                self.logger.info(f"Report sent successfully for client {person_id}")
-        except Exception as e:
-            self.logger.error(f'Exception sending client data: {e}')
-
     def send_background(self, file_path, embedding):
         image = cv2.imread(file_path)
-        image_data = self.app.get(image)
+        image_data = self.face_processor.get_faces(image)
         for data in image_data:
             if compute_sim(data.embedding, embedding) > 0.8:
                 x1, y1, x2, y2 = [int(val) for val in data.bbox]
@@ -345,12 +289,11 @@ class MainRunner:
         except Exception as e:
             self.logger.error(f'Exception adding employee image: {e}')
 
-
 if __name__ == '__main__':
-    test = MainRunner(os.getenv('IMAGES_FOLDER'))
+    runner = MainRunner(os.getenv('IMAGES_FOLDER'))
     while True:
         try:
-            test.main_run()
+            runner.main_run()
         except Exception as e:
             logger.error(f'Exception main_run {e}')
         time.sleep(5)
