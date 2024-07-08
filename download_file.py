@@ -93,7 +93,7 @@ def create_indexes(db, org_id):
     embeddings = []
     indices = []
     for doc in docs:
-        embeddings.append(doc['embedding'])
+        embeddings.append(np.array(doc['embedding'], dtype=np.float32))
         indices.append(doc['person_id'])
     vectors = np.array(embeddings).astype('float32')
     faiss.normalize_L2(vectors)
