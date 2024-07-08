@@ -65,6 +65,7 @@ class MainRunner:
     def classify_images(self, folder_path, camera_id):
         list_files = [file for file in os.listdir(folder_path) if file.endswith('SNAP.jpg')]
         for file in list_files:
+            time.sleep(1)
             file_path = os.path.join(folder_path, file)
             orig_image_path = file_path.replace('SNAP', 'BACKGROUND')
             if os.path.getsize(file_path) == 0:
