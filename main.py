@@ -110,6 +110,7 @@ class MainRunner:
             query = np.array(face_data.embedding.tolist(), dtype=np.float32).reshape(1, -1)
             scores, ids = self.fais_index.search(query, 5)
             scores, ids = scores[0], ids[0]
+            print(scores)
             person_ids = [int(self.indices[id]) for id in ids]
             person_id, score = person_ids[0], scores[0]
 
