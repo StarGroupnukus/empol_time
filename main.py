@@ -35,15 +35,13 @@ class MainRunner:
         self.app = self.setup_face_analysis()
         self.db = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.mongodb = self.db[os.getenv("DB_NAME")][self.org_name]
-        self.fais_index = faiss.read_index(f'index_file{self.org_name}.index')
-        with open(f'indices{self.org_name}.npy', 'rb') as f:
-            self.indices = np.load(f, allow_pickle=True)
+        self.fais_index, self.indices = update_database(org_name=self.org_name, app=self.app)
+
 
     def setup_face_analysis(self):
         app = FaceAnalysis()
         app.prepare(ctx_id=0)
 
-        update_database(self.org_name, app=app)
         return app
 
     def main_run(self):
@@ -59,7 +57,7 @@ class MainRunner:
         for thread in threads:
             thread.join()
         if self.check_add_to_db:
-            update_database(self.org_name, app=self.app)
+            self.fais_index, self.indices = update_database(self.org_name, app=self.app)
             self.check_add_to_db = False
 
     def classify_images(self, folder_path, camera_id):

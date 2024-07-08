@@ -99,9 +99,7 @@ def create_indexes(db, org_id):
     faiss.normalize_L2(vectors)
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
-    faiss.write_index(index, f'index_file{org_id}.index')
-    with open(f'indices{org_id}.npy', 'wb') as f:
-        np.save(f, indices)
+    return index, indices
 
 
 def new_create_indexes(db, org_id, role, logger=d_log):
@@ -156,7 +154,7 @@ def update_database(org_name, app):
     print(f"Time taken: {time.time() - start_time} seconds")
     os.remove(file_name)
 
-    create_indexes(db, org_name)
+    return create_indexes(db, org_name)
 
 
 if __name__ == '__main__':
