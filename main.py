@@ -109,7 +109,7 @@ class MainRunner:
             faiss.normalize_L2(query)
             scores, ids = self.fais_index.search(query, 5)
             scores, ids = scores[0], ids[0]
-            print(scores)
+            #print(scores)
             person_ids = [int(self.indices[id]) for id in ids]
             person_id, score = person_ids[0], abs(round(scores[0] * 100, 3))
 
