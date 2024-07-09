@@ -18,11 +18,11 @@ load_dotenv()
 
 logger = setup_logger('Mainrunning', 'logs/Mainrunning.log')
 
-TRESHOLD_IS_DB = 13
+TRESHOLD_IS_DB = 60
 POSE_TRESHOLD = 30
 DET_SCORE_TRESH = 0.75
 IMAGE_COUNT = 10
-TRESHOLD_ADD_DB = 15
+TRESHOLD_ADD_DB = 65
 DIMENSIONS = 512
 
 
@@ -111,7 +111,7 @@ class MainRunner:
             scores, ids = scores[0], ids[0]
             print(scores)
             person_ids = [int(self.indices[id]) for id in ids]
-            person_id, score = person_ids[0], scores[0]
+            person_id, score = person_ids[0], abs(round(scores[0] * 100, 3))
 
             images_count = self.mongodb.count_documents({'person_id': person_id})
 
