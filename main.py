@@ -106,6 +106,7 @@ class MainRunner:
             if np.all(face_data.embedding) == 0:
                 return 0, 0
             query = np.array(face_data.embedding.tolist(), dtype=np.float32).reshape(1, -1)
+            faiss.normalize_L2(query)
             scores, ids = self.fais_index.search(query, 5)
             scores, ids = scores[0], ids[0]
             print(scores)
