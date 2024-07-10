@@ -23,6 +23,7 @@ class Config:
     THRESHOLD_ADD_DB = 19
     DIMENSIONS = 512
     INDEX_UPDATE_THRESHOLD = 5
+    logger = setup_logger('MainRunner', 'logs/main.log')
     INIT_IMAGE_PATH = './pavel.png'
 
 class Database:
@@ -60,7 +61,7 @@ class FaceProcessor:
 class IndexManager:
     def __init__(self, org_name):
         self.org_name = org_name
-        self.client_index, self.client_indices = new_create_indexes(Database().clients, org_name, 'client', logger)
+        self.client_index, self.client_indices = new_create_indexes(Database().clients, org_name, 'client', Config.logger)
         self.employee_index = faiss.read_index(f'index_file{org_name}.index')
         self.employee_indices = np.load(f'indices{org_name}.npy', allow_pickle=True)
 
@@ -111,7 +112,6 @@ class MainRunner:
         self.images_folder = images_folder
         self.org_name = os.path.basename(images_folder)
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
-        self.logger = setup_logger('MainRunner', 'logs/main.log')
         self.db = Database()
         self.face_processor = FaceProcessor()
         self.index_manager = IndexManager(self.org_name)
@@ -127,7 +127,7 @@ class MainRunner:
             camera_directory = f"{self.images_folder}/{camera_directory}"
             camera_id = 1
             time.sleep(1)
-            self.logger.warning(f'Camera start --> {camera_directory}')
+            Config.logger.warning(f'Camera start --> {camera_directory}')
             thread = threading.Thread(target=self.classify_images, args=(camera_directory, camera_id))
             thread.start()
             threads.append(thread)
@@ -153,11 +153,11 @@ class MainRunner:
             try:
                 faces = self.face_processor.process_image(file_path)
                 if len(faces) == 0:
-                    self.logger.error("No faces found in the image")
+                    Config.logger.error("No faces found in the image")
                     ImageHandler.clean_files(file_path, orig_image_path)
                     continue
             except Exception as e:
-                self.logger.error(f'ERROR for app get: {e}')
+                Config.logger.error(f'ERROR for app get: {e}')
                 continue
 
             face_data = get_faces_data(faces)
@@ -165,7 +165,7 @@ class MainRunner:
 
     def process_faces(self, face_data, file_path, orig_image_path, folder_path, camera_id, date):
         score, person_id = self.index_manager.search_employee(face_data.embedding)
-        self.logger.info(f"Employee Score {score}")
+        Config.logger.info(f"Employee Score {score}")
         if score == 0:
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/error")
             return
@@ -181,7 +181,7 @@ class MainRunner:
         os.rename(file_path, new_file_path)
         back_file_name = self.send_background(orig_image_path, face_data.embedding)
         if back_file_name:
-            send_report(camera_id, person_id, back_file_name, date, face_data.det_score, self.logger)
+            send_report(camera_id, person_id, back_file_name, date, face_data.det_score, Config.logger)
         else:
             os.remove(orig_image_path)
 
@@ -214,14 +214,14 @@ class MainRunner:
                     'image_path': os.path.basename(file_path),
                 }
                 self.db.clients.insert_one(client_data)
-                self.logger.info("Regular client checked and added to db.")
+                Config.logger.info("Regular client checked and added to db.")
             else:
-                self.logger.info("One of the conditions failed for regular client.")
+                Config.logger.info("One of the conditions failed for regular client.")
         except Exception as e:
-            self.logger.error(f'Exception adding regular client: {e}')
+            Config.logger.error(f'Exception adding regular client: {e}')
 
     def add_new_client_to_db(self, face_data, file_path, date):
-        self.logger.info("Attempting to add a new client.")
+        Config.logger.info("Attempting to add a new client.")
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
                 abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
@@ -241,13 +241,13 @@ class MainRunner:
                 }
                 with self.lock:
                     self.new_clients.append(client_data)
-                self.logger.info(f"New client added with ID: {person_id}")
+                Config.logger.info(f"New client added with ID: {person_id}")
                 if len(self.new_clients) >= Config.INDEX_UPDATE_THRESHOLD:
                     threading.Thread(target=self.index_manager.update_client_index, args=(self.new_clients,)).start()
                     self.new_clients.clear()
                 return person_id
         except Exception as e:
-            self.logger.error(f'Exception adding new client: {e}')
+            Config.logger.error(f'Exception adding new client: {e}')
 
     def check_new_clients(self, face_data):
         new_embedding = np.array(face_data.embedding)
@@ -255,7 +255,7 @@ class MainRunner:
             existing_embedding = np.array(client_data['embedding'])
             similarity = compute_sim(new_embedding, existing_embedding)
             if similarity > Config.CHECK_NEW_CLIENT:
-                self.logger.info("Client with similar embedding already exists in new_clients.")
+                Config.logger.info("Client with similar embedding already exists in new_clients.")
                 return client_data['person_id']
         return 0
 
@@ -264,7 +264,7 @@ class MainRunner:
         image_data = self.face_processor.get_faces(image)
         for data in image_data:
             if compute_sim(data.embedding, embedding) > 0.8:
-                x1, y1, x2, y2 = [int(val) for val in data.bbox]
+                x1, y1, x2, y2 = map(int, data.bbox)
                 cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.imwrite(file_path, image)
                 return file_path
@@ -284,10 +284,10 @@ class MainRunner:
                 "Authorization": f"Bearer {token}"
             }
             response = requests.post(url, data=data, headers=headers, timeout=10)
-            self.logger.info(f'Status code add to db: {response.status_code}')
+            Config.logger.info(f'Status code add to db: {response.status_code}')
             self.check_add_to_db = True
         except Exception as e:
-            self.logger.error(f'Exception adding employee image: {e}')
+            Config.logger.error(f'Exception adding employee image: {e}')
 
 if __name__ == '__main__':
     runner = MainRunner(os.getenv('IMAGES_FOLDER'))
@@ -295,5 +295,5 @@ if __name__ == '__main__':
         try:
             runner.main_run()
         except Exception as e:
-            logger.error(f'Exception main_run {e}')
+            Config.logger.error(f'Exception main_run {e}')
         time.sleep(5)
