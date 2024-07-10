@@ -80,7 +80,7 @@ class IndexManager:
         if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
             return 0, 0
         person_id = int(self.employee_indices[ids[0][0]])
-        return abs(round(scores[0][0], 2)), person_id
+        return abs(round(scores[0][0] * 100, 3)), person_id
 
     def search_client(self, embedding):
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
@@ -88,7 +88,7 @@ class IndexManager:
         if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
             return 0, 0
         person_id = int(self.client_indices[ids[0][0]])
-        return scores[0][0], person_id
+        return abs(round(scores[0][0] * 100, 3)), person_id
 
 class ImageHandler:
     @staticmethod
