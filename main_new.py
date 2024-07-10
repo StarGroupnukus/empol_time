@@ -84,6 +84,7 @@ class IndexManager:
 
     def search_client(self, embedding):
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
+        faiss.normalize_L2(query)
         scores, ids = self.client_index.search(query, 1)
         if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
             return 0, 0
