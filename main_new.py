@@ -1,7 +1,7 @@
 import os
 import threading
 import time
-from datetime import datetime
+
 import cv2
 import faiss
 import numpy as np
@@ -9,10 +9,12 @@ import requests
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
+
 from download_file import new_create_indexes, update_database
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
 
 load_dotenv()
+
 
 class Config:
     CHECK_NEW_CLIENT = 0.5
@@ -26,13 +28,26 @@ class Config:
     logger = setup_logger('MainRunner', 'logs/main.log')
     INIT_IMAGE_PATH = './pavel.png'
 
+
 class Database:
     def __init__(self):
         self.client = MongoClient(os.getenv('MONGODB_LOCAL'))
         self.db = self.client.biz_count
         self.employees = self.db.employees
         self.clients = self.db.clients
+        if self.clients.find({}) is None:
+            self.init_clients_db()
         self.counters = self.db.counters
+        self.initialize_counter('client_id')
+
+    def init_clients_db(self):
+        image = cv2.imread(Config.INIT_IMAGE_PATH)
+        face_data = FaceProcessor().app.get(image)[0]
+        client_data = {
+            "person_id": 0,
+            "embedding": face_data.embedding.tolist(),
+        }
+        self.clients.insert_one(client_data)
 
     def initialize_counter(self, counter_id):
         if self.counters.find_one({'_id': counter_id}) is None:
@@ -46,6 +61,7 @@ class Database:
             return_document=True
         )['seq']
 
+
 class FaceProcessor:
     def __init__(self):
         self.app = FaceAnalysis()
@@ -57,6 +73,7 @@ class FaceProcessor:
     def process_image(self, image_path):
         image = cv2.imread(image_path)
         return self.get_faces(image)
+
 
 class IndexManager:
     def __init__(self, org_name):
@@ -91,6 +108,7 @@ class IndexManager:
         person_id = int(self.client_indices[ids[0][0]])
         return abs(round(scores[0][0] * 100, 3)), person_id
 
+
 class ImageHandler:
     @staticmethod
     def move_file(file_path, orig_image_path, destination_folder):
@@ -105,6 +123,7 @@ class ImageHandler:
             os.remove(file_path)
         if os.path.exists(orig_image_path):
             os.remove(orig_image_path)
+
 
 class MainRunner:
     def __init__(self, images_folder):
@@ -202,7 +221,7 @@ class MainRunner:
     def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
-                abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
+                    abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
                 client_data = {
                     "type": "regular_client",
                     'score': float(score),
@@ -224,7 +243,7 @@ class MainRunner:
         Config.logger.info("Attempting to add a new client.")
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
-                abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
+                    abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
                 new_client_id = self.check_new_clients(face_data)
                 if new_client_id == 0:
                     person_id = self.db.increment_counter('client_id')
@@ -243,7 +262,7 @@ class MainRunner:
                     self.new_clients.append(client_data)
                 Config.logger.info(f"New client added with ID: {person_id}")
                 if len(self.new_clients) >= Config.INDEX_UPDATE_THRESHOLD:
-                    self.index_manager.update_client_index(self.new_clients,)
+                    self.index_manager.update_client_index(self.new_clients, )
                     self.new_clients.clear()
                 return person_id
         except Exception as e:
@@ -288,6 +307,7 @@ class MainRunner:
             self.check_add_to_db = True
         except Exception as e:
             Config.logger.error(f'Exception adding employee image: {e}')
+
 
 if __name__ == '__main__':
     runner = MainRunner(os.getenv('IMAGES_FOLDER'))
