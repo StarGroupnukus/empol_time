@@ -17,8 +17,8 @@ load_dotenv()
 class Config:
     CHECK_NEW_CLIENT = 0.5
     THRESHOLD_IS_DB = 60
-    POSE_THRESHOLD = 30
-    DET_SCORE_THRESH = 0.75
+    POSE_THRESHOLD = 40
+    DET_SCORE_THRESH = 0.65
     IMAGE_COUNT = 10
     THRESHOLD_ADD_DB = 65
     DIMENSIONS = 512
@@ -185,6 +185,7 @@ class MainRunner:
 
     def handle_regular_client(self, file_path, face_data, folder_path, date):
         score, person_id = self.index_manager.search_client(face_data.embedding)
+        Config.logger.info(f"Client Score {score}, id {person_id}")
         if score == 0 and person_id == 0:
             ImageHandler.move_file(file_path, None, f"{folder_path}/error")
         elif score > Config.THRESHOLD_IS_DB:
