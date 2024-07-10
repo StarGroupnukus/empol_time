@@ -243,7 +243,7 @@ class MainRunner:
                     self.new_clients.append(client_data)
                 Config.logger.info(f"New client added with ID: {person_id}")
                 if len(self.new_clients) >= Config.INDEX_UPDATE_THRESHOLD:
-                    threading.Thread(target=self.index_manager.update_client_index, args=(self.new_clients,)).start()
+                    self.index_manager.update_client_index(self.new_clients,)
                     self.new_clients.clear()
                 return person_id
         except Exception as e:
