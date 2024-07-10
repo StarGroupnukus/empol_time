@@ -102,7 +102,7 @@ def create_indexes(db):
     return index, indices
 
 
-def new_create_indexes(db, org_id, role, logger=d_log):
+def new_create_indexes(db, logger=d_log):
     try:
         docs = db.find()
         embeddings = []
@@ -115,31 +115,10 @@ def new_create_indexes(db, org_id, role, logger=d_log):
         faiss.normalize_L2(vectors)
         index = faiss.IndexFlatIP(vectors.shape[1])
         index.add(vectors)
-        if role != 'client':
-            faiss.write_index(index, f'index_file{org_id}.index')
-            with open(f'indices{org_id}.npy', 'wb') as f:
-                np.save(f, indices)
-        else:
-            faiss.write_index(index, f'index_file{org_id}_client.index')
-            with open(f'indices{org_id}_client.npy', 'wb') as f:
-                np.save(f, indices)
         return index, indices
     except Exception as e:
         logger.error(f"Exception in new_create_indexes: {e}")
 
-
-def update_employees_database(db, org_name, app):
-    file_name = f'{org_name}_employees.json'
-    download_file(file_name)
-
-    data = get_data(file_name)
-    collection = db['employees']
-    start_time = time.time()
-    process_json(data, collection, app)
-    print(f"Time taken: {time.time() - start_time} seconds")
-    os.remove(file_name)
-
-    new_create_indexes(collection, org_name, 'employee', )
 
 
 def update_database(org_name, app):

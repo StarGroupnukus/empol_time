@@ -9,7 +9,7 @@ import requests
 from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
-from download_file import new_create_indexes, update_employees_database, update_database
+from download_file import new_create_indexes, update_database
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
 
 load_dotenv()
@@ -61,9 +61,8 @@ class FaceProcessor:
 class IndexManager:
     def __init__(self, org_name):
         self.org_name = org_name
-        self.client_index, self.client_indices = new_create_indexes(Database().clients, org_name, 'client', Config.logger)
-        self.employee_index = faiss.read_index(f'index_file{org_name}.index')
-        self.employee_indices = np.load(f'indices{org_name}.npy', allow_pickle=True)
+        self.client_index, self.client_indices = new_create_indexes(Database().clients, Config.logger)
+        self.employee_index, self.employee_indices = update_database(org_name, FaceProcessor().app)
 
     def update_client_index(self, new_clients):
         embeddings = [np.array(client["embedding"]) for client in new_clients]
@@ -73,8 +72,6 @@ class IndexManager:
         faiss.normalize_L2(vectors)
         self.client_index.add(vectors)
         self.client_indices.extend(client_ids)
-
-        np.save(f'indices{self.org_name}.npy', np.array(self.client_indices, dtype=object), allow_pickle=True)
 
     def search_employee(self, embedding):
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
