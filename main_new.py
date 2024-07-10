@@ -35,8 +35,6 @@ class Database:
         self.db = self.client.biz_count
         self.employees = self.db.employees
         self.clients = self.db.clients
-        if self.clients.find() is None:
-            self.init_clients_db()
         self.counters = self.db.counters
         self.initialize_counter('client_id')
 
@@ -52,6 +50,7 @@ class Database:
     def initialize_counter(self, counter_id):
         if self.counters.find_one({'_id': counter_id}) is None:
             self.counters.insert_one({'_id': counter_id, 'seq': 0})
+            self.init_clients_db()
 
     def increment_counter(self, counter_id):
         return self.counters.find_one_and_update(
