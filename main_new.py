@@ -16,11 +16,11 @@ load_dotenv()
 
 class Config:
     CHECK_NEW_CLIENT = 0.5
-    THRESHOLD_IS_DB = 14
+    THRESHOLD_IS_DB = 60
     POSE_THRESHOLD = 30
     DET_SCORE_THRESH = 0.75
     IMAGE_COUNT = 10
-    THRESHOLD_ADD_DB = 19
+    THRESHOLD_ADD_DB = 65
     DIMENSIONS = 512
     INDEX_UPDATE_THRESHOLD = 5
     logger = setup_logger('MainRunner', 'logs/main.log')
@@ -78,11 +78,12 @@ class IndexManager:
 
     def search_employee(self, embedding):
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
+        faiss.normalize_L2(query)
         scores, ids = self.employee_index.search(query, 1)
         if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
             return 0, 0
         person_id = int(self.employee_indices[ids[0][0]])
-        return scores[0][0], person_id
+        return abs(round(scores[0][0], 2)), person_id
 
     def search_client(self, embedding):
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
