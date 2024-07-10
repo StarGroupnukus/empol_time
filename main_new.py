@@ -113,7 +113,7 @@ class ImageHandler:
     def move_file(file_path, orig_image_path, destination_folder):
         os.makedirs(destination_folder, exist_ok=True)
         os.rename(file_path, f'{destination_folder}/{os.path.basename(file_path)}')
-        if orig_image_path:
+        if os.path.exists(orig_image_path):
             os.remove(orig_image_path)
 
     @staticmethod
@@ -190,7 +190,7 @@ class MainRunner:
         if score > Config.THRESHOLD_IS_DB:
             self.handle_recognized(file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id)
         else:
-            self.handle_regular_client(file_path, face_data, folder_path, date)
+            self.handle_regular_client(file_path, orig_image_path, face_data, folder_path, date)
 
     def handle_recognized(self, file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id):
         os.makedirs(f"{folder_path}/recognized", exist_ok=True)
@@ -202,20 +202,20 @@ class MainRunner:
         else:
             os.remove(orig_image_path)
 
-    def handle_regular_client(self, file_path, face_data, folder_path, date):
+    def handle_regular_client(self, file_path, orig_image_path, face_data, folder_path, date):
         score, person_id = self.index_manager.search_client(face_data.embedding)
         Config.logger.info(f"Client Score {score}, id {person_id}")
         if score == 0 and person_id == 0:
-            ImageHandler.move_file(file_path, None, f"{folder_path}/error")
+            ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/error")
         elif score > Config.THRESHOLD_IS_DB:
             self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
-            ImageHandler.move_file(file_path, None, f"{folder_path}/regular_clients")
+            ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/regular_clients")
         else:
             person_id = self.add_new_client_to_db(face_data, file_path, date)
             if person_id:
-                ImageHandler.move_file(file_path, None, f"{folder_path}/new_clients")
+                ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/new_clients")
             else:
-                ImageHandler.move_file(file_path, None, f"{folder_path}/no_good")
+                ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/no_good")
 
     def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
         try:
