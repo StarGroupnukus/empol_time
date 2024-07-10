@@ -35,7 +35,7 @@ class Database:
         self.db = self.client.biz_count
         self.employees = self.db.employees
         self.clients = self.db.clients
-        if self.clients.find({}) is None:
+        if self.clients.find() is None:
             self.init_clients_db()
         self.counters = self.db.counters
         self.initialize_counter('client_id')
