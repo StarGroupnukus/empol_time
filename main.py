@@ -47,7 +47,7 @@ class MainRunner:
     def main_run(self):
         threads = []
         for camera_directory in self.cameras_path_directories:
-            if not camera_directory.startswith('cam'):
+            if not camera_directory.startswith('Camera'):
                 continue
             camera_directory_path = os.path.join(self.images_folder, camera_directory)
             camera_id = camera_directory.split(' ')[1]
@@ -121,7 +121,7 @@ class MainRunner:
                 if document:
                     doc_upd_time = datetime.strptime(document['update_date'], '%Y-%m-%d %H:%M:%S')
                     delta_time = (datetime.now() - doc_upd_time).total_seconds()
-                    if delta_time > 4000:
+                    if delta_time > 40:
                         self.add_to_db(file_path, person_id)
             return score, person_id
 
