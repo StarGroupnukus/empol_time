@@ -161,8 +161,8 @@ class MainRunner:
             logger.error(f'Exception add image: {e}')
 
     def move_file(self, src, dst):
-        os.makedirs(os.path.dirname(dst), exist_ok=True)
-        os.rename(src, dst)
+        #os.makedirs(os.path.dirname(dst), exist_ok=True)
+        os.remove(src)
 
 
 if __name__ == '__main__':
