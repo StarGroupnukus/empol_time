@@ -51,15 +51,15 @@ def copy_files(file1, file2, dirname):
     try:
         os.makedirs(dirname, exist_ok=True)
         shutil.copy(file1, os.path.join(dirname, os.path.basename(file1)))
-       # shutil.copy(file2, os.path.join(dirname, os.path.basename(file2)))
+        shutil.copy(file2, os.path.join(dirname, os.path.basename(file2)))
     except Exception as e:
         logger.error(f"Произошла ошибка при копировании файлов: {e}")
 
 def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     file_name = os.path.basename(file_path)
     folder = os.path.join(os.getenv("USERS_FOLDER_PATH"), str(person_id), "attendances")
-#    os.makedirs(folder, exist_ok=True)
-    #os.rename(file_path, os.path.join(folder, file_name))
+    os.makedirs(folder, exist_ok=True)
+    os.rename(file_path, os.path.join(folder, file_name))
 
     url = f'{os.getenv(f"REPORT_URL")}?day={time.strftime("%Y-%m-%d")}'
     token = os.getenv("TOKEN_FOR_API")
