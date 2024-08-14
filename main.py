@@ -109,7 +109,6 @@ class MainRunner:
             faiss.normalize_L2(query)
             scores, ids = self.fais_index.search(query, 5)
             scores, ids = scores[0], ids[0]
-            #print(scores)
             person_ids = [int(self.indices[id]) for id in ids]
             person_id, score = person_ids[0], abs(round(scores[0] * 100, 3))
 
@@ -163,7 +162,6 @@ class MainRunner:
     def move_file(self, src, dst):
         #os.makedirs(os.path.dirname(dst), exist_ok=True)
         os.remove(src)
-
 
 if __name__ == '__main__':
     test = MainRunner(os.getenv('IMAGES_FOLDER'))

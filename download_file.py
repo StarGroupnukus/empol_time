@@ -20,6 +20,7 @@ client = MongoClient(mongo_url)
 
 d_log = setup_logger('download', 'logs/download.log')
 
+
 def download_file(filename):
     url = os.getenv('SEND_REPORT_API')
     token = os.getenv('TOKEN_FOR_API')
@@ -96,6 +97,8 @@ def create_indexes(db):
         embeddings.append(np.array(doc['embedding'], dtype=np.float32))
         indices.append(doc['person_id'])
     vectors = np.array(embeddings).astype('float32')
+    if vectors.ndim != 2:
+        raise ValueError("Vectors should be a 2D array")
     faiss.normalize_L2(vectors)
     index = faiss.IndexFlatIP(vectors.shape[1])
     index.add(vectors)
@@ -105,6 +108,7 @@ def create_indexes(db):
 def new_create_indexes(db, logger=d_log):
     try:
         docs = db.find()
+        print(type(docs))
         embeddings = []
         indices = []
         for doc in docs:
@@ -117,23 +121,39 @@ def new_create_indexes(db, logger=d_log):
         index.add(vectors)
         return index, indices
     except Exception as e:
+        print(f"Exception in new_create_indexes: {e}")
         logger.error(f"Exception in new_create_indexes: {e}")
-
 
 
 def update_database(org_name, app):
     file_name = f'{org_name}.json'
     download_file(file_name)
 
+    print(file_name)
     data = get_data(file_name)
     collection = org_name
     db = client[os.getenv("DB_NAME")][collection]
     start_time = time.time()
     process_json(data, db, app)
     print(f"Time taken: {time.time() - start_time} seconds")
-    os.remove(file_name)
+    #os.remove(file_name)
 
     return create_indexes(db)
+
+def update_database_to_db(db, app):
+    file_name = 'test.json'
+    download_file(file_name)
+
+    print(file_name)
+    data = get_data(file_name)
+    start_time = time.time()
+    process_json(data, db, app)
+    print(f"Time taken: {time.time() - start_time} seconds")
+    #os.remove(file_name)
+
+    return create_indexes(db)
+
+
 
 
 if __name__ == '__main__':

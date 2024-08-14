@@ -1,6 +1,7 @@
 import os
 import threading
 import time
+from distutils.command.config import config
 
 import cv2
 import faiss
@@ -10,8 +11,8 @@ from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
-from download_file import new_create_indexes, update_database
-from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report
+from download_file import new_create_indexes, update_database, create_indexes, update_database_to_db
+from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report, send_report_client
 
 load_dotenv()
 
@@ -77,8 +78,9 @@ class FaceProcessor:
 class IndexManager:
     def __init__(self, org_name):
         self.org_name = org_name
-        self.client_index, self.client_indices = new_create_indexes(Database().clients, Config.logger)
-        self.employee_index, self.employee_indices = update_database(org_name, FaceProcessor().app)
+        #db = Database()
+        self.client_index, self.client_indices = create_indexes(Database().clients,)
+        self.employee_index, self.employee_indices = update_database_to_db(Database().employees, FaceProcessor().app)
 
     def update_client_index(self, new_clients):
         embeddings = [np.array(client["embedding"]) for client in new_clients]
@@ -154,7 +156,7 @@ class MainRunner:
             self.index_manager.update_client_index(self.new_clients)
             self.new_clients.clear()
         if self.check_add_to_db:
-            update_database(self.org_name, app=self.face_processor.app)
+            update_database_to_db(Database().employees, app=self.face_processor.app)
             self.check_add_to_db = False
 
     def classify_images(self, folder_path, camera_id):
@@ -190,7 +192,7 @@ class MainRunner:
         if score > Config.THRESHOLD_IS_DB:
             self.handle_recognized(file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id)
         else:
-            self.handle_regular_client(file_path, orig_image_path, face_data, folder_path, date)
+            self.handle_regular_client(file_path, orig_image_path, face_data, folder_path, date, camera_id)
 
     def handle_recognized(self, file_path, orig_image_path, face_data, folder_path, person_id, date, camera_id):
         os.makedirs(f"{folder_path}/recognized", exist_ok=True)
@@ -202,13 +204,13 @@ class MainRunner:
         else:
             os.remove(orig_image_path)
 
-    def handle_regular_client(self, file_path, orig_image_path, face_data, folder_path, date):
+    def handle_regular_client(self, file_path, orig_image_path, face_data, folder_path, date, camera_id):
         score, person_id = self.index_manager.search_client(face_data.embedding)
         Config.logger.info(f"Client Score {score}, id {person_id}")
         if score == 0 and person_id == 0:
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/error")
         elif score > Config.THRESHOLD_IS_DB:
-            self.add_regular_client_to_db(face_data, score, person_id, file_path, date)
+            self.add_regular_client_to_db(face_data, score, person_id, file_path, date, camera_id)
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/regular_clients")
         else:
             person_id = self.add_new_client_to_db(face_data, file_path, date)
@@ -217,7 +219,7 @@ class MainRunner:
             else:
                 ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/no_good")
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date):
+    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date, camera_id):
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
                     abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
@@ -233,6 +235,7 @@ class MainRunner:
                 }
                 self.db.clients.insert_one(client_data)
                 Config.logger.info("Regular client checked and added to db.")
+                send_report_client(client_data, camera_id, Config.logger)
             else:
                 Config.logger.info("One of the conditions failed for regular client.")
         except Exception as e:
@@ -272,6 +275,7 @@ class MainRunner:
         for client_data in self.new_clients:
             existing_embedding = np.array(client_data['embedding'])
             similarity = compute_sim(new_embedding, existing_embedding)
+            print(f"Similarity new client array: {similarity}")
             if similarity > Config.CHECK_NEW_CLIENT:
                 Config.logger.info("Client with similar embedding already exists in new_clients.")
                 return client_data['person_id']

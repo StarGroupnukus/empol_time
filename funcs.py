@@ -6,6 +6,7 @@ from datetime import datetime
 import numpy as np
 import requests
 from dotenv import load_dotenv
+from numpy.distutils.conv_template import header
 from numpy.linalg import norm
 
 load_dotenv()
@@ -57,8 +58,8 @@ def copy_files(file1, file2, dirname):
 def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     file_name = os.path.basename(file_path)
     folder = os.path.join(os.getenv("USERS_FOLDER_PATH"), str(person_id), "attendances")
-    os.makedirs(folder, exist_ok=True)
-    os.rename(file_path, os.path.join(folder, file_name))
+#    os.makedirs(folder, exist_ok=True)
+    #os.rename(file_path, os.path.join(folder, file_name))
 
     url = f'{os.getenv(f"REPORT_URL")}?day={time.strftime("%Y-%m-%d")}'
     token = os.getenv("TOKEN_FOR_API")
@@ -82,6 +83,35 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
             logger.info(f"Report sent successfully for {person_id}")
     except Exception as e:
         logger.error(f"Exception while sending report: {e}")
+
+
+def send_report_client(data, camera_id, logger=logger):
+
+    url = os.getenv("REPORT_CLIENT")
+    token = os.getenv("TOKEN_FOR_API")
+
+    data = {
+        "user_id": data["person_id"],
+        "device_id": str(camera_id),
+        "gender": data['gender'],
+        "age": data['age'],
+        "time": data['time'],
+        "score": data['score'],
+    }
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+    try:
+        response = requests.post(url, data=data, headers=headers, timeout=10)
+        logger.info(f"{data['person_id']} -- {data['score']} sent {response.status_code}")
+        if response.status_code != 201:
+            logger.error(f"Error: {response.status_code} for {data['person_id']}")
+        else:
+            logger.info(f"Report sent successfully for {data['person_id']}")
+    except Exception as e:
+        logger.error(f"Exception while sending report: {e}")
+
 
 
 def get_faces_data(faces):
