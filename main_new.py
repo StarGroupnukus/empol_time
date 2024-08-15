@@ -68,10 +68,27 @@ class Database:
         )['seq']
 
 
+import threading
+
 class FaceProcessor:
+    _instance = None
+    _lock = threading.Lock()
+
     def __init__(self):
-        self.app = FaceAnalysis()
-        self.app.prepare(ctx_id=0)
+        if FaceProcessor._instance is not None:
+            raise Exception("This class is a singleton!")
+        else:
+            self.app = FaceAnalysis()
+            self.app.prepare(ctx_id=0)
+            FaceProcessor._instance = self
+
+    @staticmethod
+    def get_instance():
+        if FaceProcessor._instance is None:
+            with FaceProcessor._lock:
+                if FaceProcessor._instance is None:
+                    FaceProcessor()
+        return FaceProcessor._instance
 
     def get_faces(self, image):
         return self.app.get(image)
@@ -79,7 +96,6 @@ class FaceProcessor:
     def process_image(self, image_path):
         image = cv2.imread(image_path)
         return self.get_faces(image)
-
 
 class IndexManager:
     def __init__(self, org_name):
@@ -89,7 +105,7 @@ class IndexManager:
         if client_index is None or client_indices is None:
             client_index, client_indices = create_indexes(Database().clients)
         if employee_index is None or employee_indices is None:
-            employee_index, employee_indices = update_database_to_db(Database().employees, FaceProcessor().app)
+            employee_index, employee_indices = update_database_to_db(Database().employees, FaceProcessor.get_instance().app)
 
     def update_client_index(self, new_clients):
         global client_index, client_indices
@@ -152,7 +168,7 @@ class MainRunner:
         self.org_name = os.path.basename(images_folder)
         self.cameras_path_directories = [dir for dir in os.listdir(self.images_folder)]
         self.db = Database()
-        self.face_processor = FaceProcessor()
+        self.face_processor = FaceProcessor.get_instance()
         self.index_manager = IndexManager(self.org_name)
         self.lock = threading.Lock()
         self.check_add_to_db = False
@@ -229,7 +245,7 @@ class MainRunner:
             self.add_regular_client_to_db(face_data, score, person_id, file_path, date, camera_id)
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/regular_clients")
         else:
-            person_id = self.add_new_client_to_db(face_data, file_path, date)
+            person_id = self.add_new_client_to_db(face_data, file_path, date, camera_id)
             if person_id:
                 ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/new_clients")
             else:
@@ -257,7 +273,7 @@ class MainRunner:
         except Exception as e:
             Config.logger.error(f'Exception adding regular client: {e}')
 
-    def add_new_client_to_db(self, face_data, file_path, date):
+    def add_new_client_to_db(self, face_data, file_path, date, camera_id):
         Config.logger.info("Attempting to add a new client.")
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
@@ -276,6 +292,7 @@ class MainRunner:
                 with self.lock:
                     self.index_manager.update_client_index([client_data])
                 self.db.clients.insert_one(client_data)
+                send_report_client(client_data, camera_id, Config.logger)
                 Config.logger.info(f"New client added with ID: {person_id}")
                 return person_id
         except Exception as e:

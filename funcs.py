@@ -78,7 +78,7 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
         }, timeout=10)
         logger.info(f"{person_id} -- {score} sent {response.status_code}")
         if response.status_code != 201:
-            logger.error(f"Error: {response.status_code} for {person_id}")
+            logger.error(f"Error: {response.status_code} \n {response.text} for {person_id}")
         else:
             logger.info(f"Report sent successfully for {person_id}")
     except Exception as e:
@@ -95,7 +95,8 @@ def send_report_client(data, camera_id, logger=logger):
         "device_id": str(camera_id),
         "gender": data['gender'],
         "age": data['age'],
-        "time": data['date'],
+        "date": data['date'].split(" ")[0],
+        "time": data['date'].split(" ")[1],
         "score": data['score'],
     }
     headers = {
@@ -106,7 +107,7 @@ def send_report_client(data, camera_id, logger=logger):
         response = requests.post(url, data=data, headers=headers, timeout=10)
         logger.info(f"{data['person_id']} -- {data['score']} sent {response.status_code}")
         if response.status_code != 201:
-            logger.error(f"Error: {response.status_code} for {data['person_id']}")
+            logger.error(f"Error: {response.status_code}\n {response.text} for {data['person_id']}")
         else:
             logger.info(f"Report sent successfully for {data['person_id']}")
     except Exception as e:
