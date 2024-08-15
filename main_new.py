@@ -17,6 +17,12 @@ from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup
 load_dotenv()
 
 
+client_index = None
+client_indices = None
+employee_index = None
+employee_indices = None
+
+
 class Config:
     CHECK_NEW_CLIENT = 0.5
     THRESHOLD_IS_DB = 60
@@ -77,36 +83,50 @@ class FaceProcessor:
 
 class IndexManager:
     def __init__(self, org_name):
+        global client_index, client_indices, employee_index, employee_indices
         self.org_name = org_name
-        #db = Database()
-        self.client_index, self.client_indices = create_indexes(Database().clients,)
-        self.employee_index, self.employee_indices = update_database_to_db(Database().employees, FaceProcessor().app)
+        self.lock = threading.Lock()
+        if client_index is None or client_indices is None:
+            client_index, client_indices = create_indexes(Database().clients)
+        if employee_index is None or employee_indices is None:
+            employee_index, employee_indices = update_database_to_db(Database().employees, FaceProcessor().app)
 
     def update_client_index(self, new_clients):
+        global client_index, client_indices
         embeddings = [np.array(client["embedding"]) for client in new_clients]
         client_ids = [client["person_id"] for client in new_clients]
 
         vectors = np.array(embeddings).astype('float32')
         faiss.normalize_L2(vectors)
-        self.client_index.add(vectors)
-        self.client_indices.extend(client_ids)
+
+        with self.lock:
+            client_index.add(vectors)
+            client_indices.extend(client_ids)
 
     def search_employee(self, embedding):
+        global employee_index, employee_indices
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
         faiss.normalize_L2(query)
-        scores, ids = self.employee_index.search(query, 1)
+
+        with self.lock:
+            scores, ids = employee_index.search(query, 1)
+
         if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
             return 0, 0
-        person_id = int(self.employee_indices[ids[0][0]])
+        person_id = int(employee_indices[ids[0][0]])
         return abs(round(scores[0][0] * 100, 3)), person_id
 
     def search_client(self, embedding):
+        global client_index, client_indices
         query = np.array(embedding).astype(np.float32).reshape(1, -1)
         faiss.normalize_L2(query)
-        scores, ids = self.client_index.search(query, 1)
+
+        with self.lock:
+            scores, ids = client_index.search(query, 1)
+
         if len(scores) == 0 or len(ids) == 0 or len(ids[0]) == 0:
             return 0, 0
-        person_id = int(self.client_indices[ids[0][0]])
+        person_id = int(client_indices[ids[0][0]])
         return abs(round(scores[0][0] * 100, 3)), person_id
 
 
@@ -134,7 +154,6 @@ class MainRunner:
         self.db = Database()
         self.face_processor = FaceProcessor()
         self.index_manager = IndexManager(self.org_name)
-        self.new_clients = []
         self.lock = threading.Lock()
         self.check_add_to_db = False
 
@@ -152,9 +171,6 @@ class MainRunner:
             threads.append(thread)
         for thread in threads:
             thread.join()
-        if self.new_clients:
-            self.index_manager.update_client_index(self.new_clients)
-            self.new_clients.clear()
         if self.check_add_to_db:
             update_database_to_db(Database().employees, app=self.face_processor.app)
             self.check_add_to_db = False
@@ -231,7 +247,7 @@ class MainRunner:
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                    'image_path': os.path.basename(file_path),
+                    'image_path': file_path,
                 }
                 self.db.clients.insert_one(client_data)
                 Config.logger.info("Regular client checked and added to db.")
@@ -246,11 +262,8 @@ class MainRunner:
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
                     abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
-                new_client_id = self.check_new_clients(face_data)
-                if new_client_id == 0:
-                    person_id = self.db.increment_counter('client_id')
-                else:
-                    person_id = new_client_id
+                person_id = self.db.increment_counter('client_id')
+
                 client_data = {
                     "type": "new_client",
                     "person_id": int(person_id),
@@ -258,28 +271,16 @@ class MainRunner:
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                    'image_path': os.path.basename(file_path),
+                    'image_path': file_path,
                 }
                 with self.lock:
-                    self.new_clients.append(client_data)
+                    self.index_manager.update_client_index([client_data])
+                self.db.clients.insert_one(client_data)
                 Config.logger.info(f"New client added with ID: {person_id}")
-                if len(self.new_clients) >= Config.INDEX_UPDATE_THRESHOLD:
-                    self.index_manager.update_client_index(self.new_clients, )
-                    self.new_clients.clear()
                 return person_id
         except Exception as e:
             Config.logger.error(f'Exception adding new client: {e}')
 
-    def check_new_clients(self, face_data):
-        new_embedding = np.array(face_data.embedding)
-        for client_data in self.new_clients:
-            existing_embedding = np.array(client_data['embedding'])
-            similarity = compute_sim(new_embedding, existing_embedding)
-            print(f"Similarity new client array: {similarity}")
-            if similarity > Config.CHECK_NEW_CLIENT:
-                Config.logger.info("Client with similar embedding already exists in new_clients.")
-                return client_data['person_id']
-        return 0
 
     def send_background(self, file_path, embedding):
         image = cv2.imread(file_path)
@@ -310,7 +311,6 @@ class MainRunner:
             self.check_add_to_db = True
         except Exception as e:
             Config.logger.error(f'Exception adding employee image: {e}')
-
 
 if __name__ == '__main__':
     runner = MainRunner(os.getenv('IMAGES_FOLDER'))
