@@ -95,7 +95,7 @@ def send_report_client(data, camera_id, logger=logger):
         "device_id": str(camera_id),
         "gender": data['gender'],
         "age": data['age'],
-        "date": data['date'].split(" ")[0],
+        "day": data['date'].split(" ")[0],
         "time": data['date'].split(" ")[1],
         "score": data['score'],
     }
