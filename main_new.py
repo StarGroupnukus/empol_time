@@ -315,7 +315,7 @@ class MainRunner:
         try:
             url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{employee_id}/images'
             data = {'employee_id': employee_id}
-            files = {'file': (open(img_path, 'rb'), "multipart/form-data")}
+            files = {'file': open(img_path, "rb")}
             headers = {
                 "Accept": "application/json",
             }
