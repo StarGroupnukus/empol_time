@@ -56,27 +56,24 @@ def copy_files(file1, file2, dirname):
         logger.error(f"Произошла ошибка при копировании файлов: {e}")
 
 def send_report(camera_id, person_id, file_path, time, score, logger=logger):
-    file_name = os.path.basename(file_path)
 
     url = f'{os.getenv("REPORT_URL")}'
-    token = os.getenv("TOKEN_FOR_API")
     data = {
         "person_id": str(person_id),
         "camera_id": camera_id,
-        "time": time.strftime("%H:%M:%S"),
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "score": str(score),
     }
     files = {
-        "file": (file_name, open(file_path, "rb"), "multipart/form-data")
+        "file": open(file_path, "rb")
     }
 
     try:
         response = requests.post(url, data=data, files=files, headers={
             "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
         }, timeout=10)
         logger.info(f"{person_id} -- {score} sent {response.status_code}")
-        if response.status_code != 201:
+        if response.status_code != 201 or response.status_code != 200:
             logger.error(f"Error: {response.status_code} \n {response.text} for {person_id}")
         else:
             logger.info(f"Report sent successfully for {person_id}")
