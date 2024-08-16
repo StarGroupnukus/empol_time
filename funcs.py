@@ -57,22 +57,21 @@ def copy_files(file1, file2, dirname):
 
 def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     file_name = os.path.basename(file_path)
-    folder = os.path.join(os.getenv("USERS_FOLDER_PATH"), str(person_id), "attendances")
-    os.makedirs(folder, exist_ok=True)
-    os.rename(file_path, os.path.join(folder, file_name))
 
-    url = f'{os.getenv(f"REPORT_URL")}?day={time.strftime("%Y-%m-%d")}'
+    url = f'{os.getenv("REPORT_URL")}'
     token = os.getenv("TOKEN_FOR_API")
     data = {
-        "user_id": str(person_id),
-        "device_id": str(camera_id),
-        "images[]": [file_name],
+        "person_id": str(person_id),
+        "camera_id": camera_id,
         "time": time.strftime("%H:%M:%S"),
         "score": str(score),
     }
+    files = {
+        "file": (file_name, open(file_path, "rb"), "multipart/form-data")
+    }
 
     try:
-        response = requests.post(url, data=data, headers={
+        response = requests.post(url, data=data, files=files, headers={
             "Accept": "application/json",
             "Authorization": f"Bearer {token}"
         }, timeout=10)
@@ -83,7 +82,6 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
             logger.info(f"Report sent successfully for {person_id}")
     except Exception as e:
         logger.error(f"Exception while sending report: {e}")
-
 
 def send_report_client(data, camera_id, logger=logger):
 

@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from insightface.app import FaceAnalysis
 from pymongo import MongoClient
 
-from download_file import new_create_indexes, update_database, create_indexes, update_database_to_db
+from download_file import create_indexes, update_database_to_db
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report, send_report_client
 
 load_dotenv()
@@ -39,7 +39,7 @@ class Config:
 class Database:
     def __init__(self):
         self.client = MongoClient(os.getenv('MONGODB_LOCAL'))
-        self.db = self.client.biz_count
+        self.db = self.client[os.getenv('DB_NAME')]
         self.employees = self.db.employees
         self.clients = self.db.clients
         self.counters = self.db.counters
@@ -231,6 +231,7 @@ class MainRunner:
         new_file_path = f'{folder_path}/recognized/{person_id}_{face_data.det_score}_{date.strftime("%Y-%m-%d_%H-%M-%S")}.jpg'
         os.rename(file_path, new_file_path)
         back_file_name = self.send_background(orig_image_path, face_data.embedding)
+        self.add_employer_to_db(new_file_path, person_id)
         if back_file_name:
             send_report(camera_id, person_id, back_file_name, date, face_data.det_score, Config.logger)
         else:
@@ -310,24 +311,20 @@ class MainRunner:
                 return file_path
         return False
 
-    def add_employer_to_db(self, img_path, person_id):
+    def add_employer_to_db(self, img_path, employee_id):
         try:
-            image_name = os.path.basename(img_path)
-            folder = f"{os.getenv('USERS_FOLDER_PATH')}/{person_id}/images"
-            os.makedirs(folder, exist_ok=True)
-            os.rename(img_path, f"{folder}/{image_name}")
-            url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{person_id}'
-            token = os.getenv("TOKEN_FOR_API")
-            data = {'image': image_name}
+            url = f'{os.getenv("ADD_IMAGE_TO_USER")}/{employee_id}/images'
+            data = {'employee_id': employee_id}
+            files = {'file': (open(img_path), "multipart/form-data")}
             headers = {
                 "Accept": "application/json",
-                "Authorization": f"Bearer {token}"
             }
-            response = requests.post(url, data=data, headers=headers, timeout=10)
+            response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
             Config.logger.info(f'Status code add to db: {response.status_code}')
             self.check_add_to_db = True
         except Exception as e:
             Config.logger.error(f'Exception adding employee image: {e}')
+
 
 if __name__ == '__main__':
     runner = MainRunner(os.getenv('IMAGES_FOLDER'))

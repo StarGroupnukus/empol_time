@@ -23,12 +23,10 @@ d_log = setup_logger('download', 'logs/download.log')
 
 def download_file(filename):
     url = os.getenv('SEND_REPORT_API')
-    token = os.getenv('TOKEN_FOR_API')
 
-    headers = {'Authorization': f'Bearer {token}'}
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url)
         response.raise_for_status()
 
         with open(filename, 'wb') as f:
