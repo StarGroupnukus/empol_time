@@ -58,7 +58,7 @@ def copy_files(file1, file2, dirname):
 def send_report(camera_id, person_id, file_path, time, score, logger=logger):
 
     url = f'{os.getenv("REPORT_URL")}'
-    data = {
+    params = {
         "person_id": int(person_id),
         "camera_id": int(camera_id),
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -67,9 +67,9 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
     files = {
         "file": open(file_path, "rb")
     }
-    print(data)
+    print(params)
     try:
-        response = requests.post(url, data=data, files=files, headers={
+        response = requests.post(url, params=params, files=files, headers={
             "Accept": "application/json",
         }, timeout=10)
         logger.info(f"{person_id} -- {score} sent {response.status_code}")
