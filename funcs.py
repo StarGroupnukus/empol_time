@@ -62,7 +62,7 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
         "person_id": person_id,
         "camera_id": camera_id,
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "score": float(score),
+        "score": str(score),
     }
     files = {
         "file": open(file_path, "rb")
