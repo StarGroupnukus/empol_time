@@ -59,15 +59,15 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
 
     url = f'{os.getenv("REPORT_URL")}'
     data = {
-        "person_id": person_id,
-        "camera_id": camera_id,
+        "person_id": int(person_id),
+        "camera_id": int(camera_id),
         "time": time.strftime("%Y-%m-%d %H:%M:%S"),
         "score": str(score),
     }
     files = {
         "file": open(file_path, "rb")
     }
-
+    print(data)
     try:
         response = requests.post(url, data=data, files=files, headers={
             "Accept": "application/json",
