@@ -1,7 +1,5 @@
 import os
-import threading
 import time
-from distutils.command.config import config
 
 import cv2
 import faiss
@@ -15,7 +13,6 @@ from download_file import create_indexes, update_database_to_db
 from funcs import compute_sim, extract_date_from_filename, get_faces_data, setup_logger, send_report, send_report_client
 
 load_dotenv()
-
 
 client_index = None
 client_indices = None
@@ -70,6 +67,7 @@ class Database:
 
 import threading
 
+
 class FaceProcessor:
     _instance = None
     _lock = threading.Lock()
@@ -97,6 +95,7 @@ class FaceProcessor:
         image = cv2.imread(image_path)
         return self.get_faces(image)
 
+
 class IndexManager:
     def __init__(self, org_name):
         global client_index, client_indices, employee_index, employee_indices
@@ -105,7 +104,8 @@ class IndexManager:
         if client_index is None or client_indices is None:
             client_index, client_indices = create_indexes(Database().clients)
         if employee_index is None or employee_indices is None:
-            employee_index, employee_indices = update_database_to_db(Database().employees, FaceProcessor.get_instance().app)
+            employee_index, employee_indices = update_database_to_db(Database().employees,
+                                                                     FaceProcessor.get_instance().app)
 
     def update_client_index(self, new_clients):
         global client_index, client_indices
@@ -243,28 +243,27 @@ class MainRunner:
         if score == 0 and person_id == 0:
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/error")
         elif score > Config.THRESHOLD_IS_DB:
-            self.add_regular_client_to_db(face_data, score, person_id, file_path, date, camera_id)
+            self.add_regular_client_to_db(face_data, score, person_id, date, camera_id)
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/regular_clients")
         else:
-            person_id = self.add_new_client_to_db(face_data, file_path, date, camera_id)
+            person_id = self.add_new_client_to_db(face_data, date, camera_id)
             if person_id:
                 ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/new_clients")
             else:
                 ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/no_good")
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date, camera_id):
+    def add_regular_client_to_db(self, face_data, score, person_id, date, camera_id):
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
                     abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
                 client_data = {
-                    "type": "regular_client",
-                    'score': float(score),
-                    "person_id": int(person_id),
-                    "embedding": face_data.embedding.tolist(),
-                    "gender": int(face_data.gender),
-                    "age": int(face_data.age),
-                    "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                    'image_path': file_path,
+                    "id": person_id,
+                    "gender": "Male" if face_data[0] == 1 else "Female",
+                    "camera_id": int(camera_id),
+                    "score": score,
+                    "age": face_data.age,
+                    "client_status": "new",
+                    "time": date.strftime("%Y-%m-%d %H:%M:%S"),
                 }
                 self.db.clients.insert_one(client_data)
                 Config.logger.info("Regular client checked and added to db.")
@@ -274,7 +273,7 @@ class MainRunner:
         except Exception as e:
             Config.logger.error(f'Exception adding regular client: {e}')
 
-    def add_new_client_to_db(self, face_data, file_path, date, camera_id):
+    def add_new_client_to_db(self, face_data, date, camera_id):
         Config.logger.info("Attempting to add a new client.")
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
@@ -282,13 +281,13 @@ class MainRunner:
                 person_id = self.db.increment_counter('client_id')
 
                 client_data = {
-                    "type": "new_client",
-                    "person_id": int(person_id),
-                    "embedding": face_data.embedding.tolist(),
-                    "gender": int(face_data.gender),
-                    "age": int(face_data.age),
-                    "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                    'image_path': file_path,
+                    "id": person_id,
+                    "gender": "Male" if face_data[0] == 1 else "Female",
+                    "camera_id": int(camera_id),
+                    "score": face_data.det_score,
+                    "age": face_data.age,
+                    "client_status": "new",
+                    "time": date.strftime("%Y-%m-%d %H:%M:%S"),
                 }
                 with self.lock:
                     self.index_manager.update_client_index([client_data])
@@ -298,7 +297,6 @@ class MainRunner:
                 return person_id
         except Exception as e:
             Config.logger.error(f'Exception adding new client: {e}')
-
 
     def send_background(self, file_path, embedding):
         image = cv2.imread(file_path)

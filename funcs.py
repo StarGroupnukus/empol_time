@@ -6,7 +6,6 @@ from datetime import datetime
 import numpy as np
 import requests
 from dotenv import load_dotenv
-from numpy.distutils.conv_template import header
 from numpy.linalg import norm
 
 load_dotenv()
