@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+      - "/home/stargroup/Рабочий стол:/mnt/IMAGES_FOLDER/desktop"
+      - "/home/stargroup/Изображения/test:/mnt/IMAGES_FOLDER/test"
+    env_file:
+      - .env
+    command: [ "python", "main_new.py" ]
+    networks:
+      - mongodb_network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 800M
+
+networks:
+  mongodb_network:
+    external: true
