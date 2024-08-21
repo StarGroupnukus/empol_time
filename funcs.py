@@ -92,7 +92,7 @@ def send_report_client(data, camera_id, logger=logger):
     send_data = {
         "client_id": data["person_id"],
         "device_id": int(camera_id),
-        "gender": 'Male' if data['gender'] == 0 else 'Female',
+        "gender": 'Male' if data['gender'] == 1 else 'Female',
         "age": data['age'],
         "date": data['date'],
         "score": data['score'],
