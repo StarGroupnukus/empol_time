@@ -86,7 +86,6 @@ def send_report(camera_id, person_id, file_path, time, score, logger=logger):
 
 
 def send_report_client(data, camera_id, logger=logger):
-    print(data)
     url = os.getenv("REPORT_CLIENT")
     token = os.getenv("TOKEN_FOR_API")
 
@@ -102,6 +101,7 @@ def send_report_client(data, camera_id, logger=logger):
         "Accept": "application/json",
         "Authorization": f"Bearer {token}"
     }
+    print(send_data)
     try:
         response = requests.post(url, data=send_data, headers=headers, timeout=10)
         logger.info(f"{data['person_id']} -- {data['score']} sent {response.status_code}")
