@@ -284,6 +284,7 @@ class MainRunner:
                     "type": "new_client",
                     "person_id": int(person_id),
                     "embedding": face_data.embedding.tolist(),
+                    "score": float(face_data.det_score),
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
