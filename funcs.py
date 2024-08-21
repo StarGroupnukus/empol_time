@@ -91,12 +91,11 @@ def send_report_client(data, camera_id, logger=logger):
     token = os.getenv("TOKEN_FOR_API")
 
     data = {
-        "user_id": data["person_id"],
-        "device_id": str(camera_id),
-        "gender": data['gender'],
+        "client_id": data["person_id"],
+        "device_id": int(camera_id),
+        "gender": 'Male' if data['gender'] == 0 else 'Female',
         "age": data['age'],
-        "day": data['date'].split(" ")[0],
-        "time": data['date'].split(" ")[1],
+        "date": data['date'],
         "score": data['score'],
     }
     headers = {
