@@ -95,7 +95,7 @@ def send_report_client(data, camera_id, logger=logger):
         "gender": 'Male' if data['gender'] == 1 else 'Female',
         "age": data['age'],
         "date": data['date'],
-        "score": data['score'],
+        "score": data['score']*100,
     }
     headers = {
         "Accept": "application/json",

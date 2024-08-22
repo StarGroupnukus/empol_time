@@ -25,10 +25,10 @@ employee_indices = None
 
 class Config:
     CHECK_NEW_CLIENT = 0.5
-    THRESHOLD_IS_DB = 60
+    THRESHOLD_IS_DB = 56
     POSE_THRESHOLD = 40
-    DET_SCORE_THRESH = 0.65
-    IMAGE_COUNT = 10
+    DET_SCORE_THRESH = 0.7
+    IMAGE_COUNT = 30
     THRESHOLD_ADD_DB = 65
     DIMENSIONS = 512
     INDEX_UPDATE_THRESHOLD = 5
@@ -242,16 +242,16 @@ class MainRunner:
         if score == 0 and person_id == 0:
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/error")
         elif score > Config.THRESHOLD_IS_DB:
-            self.add_regular_client_to_db(face_data, score, person_id, file_path, date, camera_id)
+            self.add_regular_client_to_db(face_data, score, person_id, file_path, folder_path, date, camera_id)
             ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/regular_clients")
         else:
-            person_id = self.add_new_client_to_db(face_data, file_path, date, camera_id)
+            person_id = self.add_new_client_to_db(face_data, file_path, folder_path, date, camera_id)
             if person_id:
                 ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/new_clients")
             else:
                 ImageHandler.move_file(file_path, orig_image_path, f"{folder_path}/no_good")
 
-    def add_regular_client_to_db(self, face_data, score, person_id, file_path, date, camera_id):
+    def add_regular_client_to_db(self, face_data, score, person_id, file_path, folder_path, date, camera_id):
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
                     abs(face_data.pose[1]) < Config.POSE_THRESHOLD and abs(face_data.pose[0]) < Config.POSE_THRESHOLD):
@@ -263,7 +263,7 @@ class MainRunner:
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                    'image_path': file_path,
+                    'image_path': os.path.join(folder_path, 'regular_clients', file_path),
                 }
                 self.db.clients.insert_one(client_data)
                 Config.logger.info("Regular client checked and added to db.")
@@ -273,7 +273,7 @@ class MainRunner:
         except Exception as e:
             Config.logger.error(f'Exception adding regular client: {e}')
 
-    def add_new_client_to_db(self, face_data, file_path, date, camera_id):
+    def add_new_client_to_db(self, face_data, file_path, folder_path, date, camera_id):
         Config.logger.info("Attempting to add a new client.")
         try:
             if (face_data.det_score >= Config.DET_SCORE_THRESH and
@@ -288,7 +288,7 @@ class MainRunner:
                     "gender": int(face_data.gender),
                     "age": int(face_data.age),
                     "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                    'image_path': file_path,
+                    'image_path': os.path.join(folder_path, 'new_clients', file_path),
                 }
                 with self.lock:
                     self.index_manager.update_client_index([client_data])
